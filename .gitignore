@@ -1,0 +1,40 @@
+# Rust
+/target/
+core/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node.js
+node_modules/
+vscode/node_modules/
+*.vsix
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Riwaq specific
+.riwaq-index/
+generated-docs/
+*.log
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Test coverage
+coverage/
+*.lcov
