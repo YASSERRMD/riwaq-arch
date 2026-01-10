@@ -1,0 +1,163 @@
+{
+  "name": "riwaq-arch",
+  "displayName": "Riwaq Arch - Living Documentation",
+  "description": "AI-powered codebase documentation and architecture analysis for VS Code",
+  "version": "0.1.0",
+  "publisher": "yasserrmd",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YASSERRMD/riwaq-arch"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "documentation",
+    "architecture",
+    "ai",
+    "llm",
+    "codebase",
+    "analysis"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "icon": "images/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "riwaq.analyzeWorkspace",
+        "title": "Riwaq: Analyze Workspace",
+        "icon": "$(search)"
+      },
+      {
+        "command": "riwaq.generateDocs",
+        "title": "Riwaq: Generate Documentation",
+        "icon": "$(book)"
+      },
+      {
+        "command": "riwaq.askQuestion",
+        "title": "Riwaq: Ask About Codebase",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "riwaq.showArchitecture",
+        "title": "Riwaq: Show Architecture Diagram",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "riwaq.refreshSnapshot",
+        "title": "Riwaq: Refresh Analysis",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "riwaq",
+          "title": "Riwaq Arch",
+          "icon": "images/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "riwaq": [
+        {
+          "id": "riwaq.architecture",
+          "name": "Architecture"
+        },
+        {
+          "id": "riwaq.modules",
+          "name": "Modules"
+        },
+        {
+          "id": "riwaq.insights",
+          "name": "Insights"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "riwaq.refreshSnapshot",
+          "when": "view == riwaq.architecture",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "riwaq.analyzeWorkspace",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Riwaq Arch",
+      "properties": {
+        "riwaq.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:9527",
+          "description": "URL of the Riwaq analysis server"
+        },
+        "riwaq.autoAnalyze": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically analyze workspace on open"
+        },
+        "riwaq.llmApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for LLM provider (OpenRouter, etc.)"
+        },
+        "riwaq.llmModel": {
+          "type": "string",
+          "default": "glm-4",
+          "description": "LLM model to use for documentation generation"
+        },
+        "riwaq.excludedDirs": {
+          "type": "array",
+          "default": [
+            "node_modules",
+            "target",
+            ".git",
+            "dist",
+            "build"
+          ],
+          "description": "Directories to exclude from analysis"
+        },
+        "riwaq.maxCommits": {
+          "type": "number",
+          "default": 500,
+          "description": "Maximum number of git commits to analyze"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "pretest": "npm run compile && npm run lint",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/test-electron": "^2.3.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.3.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
