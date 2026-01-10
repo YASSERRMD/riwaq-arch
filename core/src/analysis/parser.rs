@@ -4,7 +4,7 @@
 //! and extract structural information like functions, types, and imports.
 
 use std::path::Path;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::errors::{Result, RiwaqError};
 use crate::models::file::{
@@ -637,11 +637,12 @@ impl CodeParser {
     fn parse_js_export(&self, node: &tree_sitter::Node, source: &str) -> Option<ExportInfo> {
         let text = Self::node_text(node, source);
         let is_default = text.contains("export default");
+        let is_reexport = text.contains("from ");
 
         Some(ExportInfo {
             name: text,
             is_default,
-            is_reexport: text.contains("from "),
+            is_reexport,
             line: node.start_position().row + 1,
         })
     }

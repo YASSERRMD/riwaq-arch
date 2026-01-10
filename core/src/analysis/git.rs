@@ -4,10 +4,10 @@
 //! compute file churn, identify hotspots, and detect co-change patterns.
 
 use chrono::{TimeZone, Utc};
-use git2::{Commit, DiffOptions, ObjectType, Repository, Sort};
+use git2::{Commit, DiffOptions, Repository, Sort};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use tracing::{debug, info, warn};
+use tracing::info;
 
 use crate::errors::{Result, RiwaqError};
 use crate::models::git::{

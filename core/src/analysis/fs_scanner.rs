@@ -143,7 +143,7 @@ impl FsScanner {
 
     /// Scan the filesystem and return all discovered source files.
     pub fn scan(&self) -> Result<Vec<ScannedFile>> {
-        let root = self.config.root.canonicalize().map_err(|e| {
+        let root = self.config.root.canonicalize().map_err(|_e| {
             RiwaqError::DirectoryNotFound(self.config.root.clone())
         })?;
 

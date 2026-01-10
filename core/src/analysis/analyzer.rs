@@ -6,15 +6,15 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use crate::analysis::fs_scanner::{FsScanner, ScanConfig, ScannedFile};
 use crate::analysis::git::{GitAnalysisConfig, GitAnalyzer};
 use crate::analysis::parser::CodeParser;
-use crate::errors::{Result, RiwaqError};
+use crate::errors::Result;
 use crate::logging::ProgressReporter;
 use crate::models::file::Language;
-use crate::models::module::{DependencyGraph, DependencyKind, ModuleMetrics, ModuleSummary};
+use crate::models::module::{DependencyGraph, DependencyKind, ModuleSummary};
 use crate::models::snapshot::{AnalysisConfig, CodebaseSnapshot, ServiceInfo, ServiceKind};
 
 /// Configuration for the codebase analyzer.
@@ -274,7 +274,7 @@ impl CodebaseAnalyzer {
         // Compute module metrics (cohesion, coupling)
         for module in modules.values_mut() {
             let deps = graph.get_dependencies(&module.path);
-            let dependents = graph.get_dependents(&module.path);
+            let _dependents = graph.get_dependents(&module.path);
 
             // Simple coupling score: ratio of external dependencies to internal items
             let external_deps = deps.len();

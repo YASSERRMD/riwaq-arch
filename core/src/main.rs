@@ -143,7 +143,7 @@ async fn run_analyze(
     max_commits: usize,
     include_tests: bool,
 ) -> anyhow::Result<()> {
-    use riwaq_arch_core::analysis::analyzer::CodebaseAnalyzer;
+    use riwaq_core::analysis::analyzer::CodebaseAnalyzer;
 
     let analyzer = CodebaseAnalyzer::new(&path)
         .with_max_commits(max_commits)
