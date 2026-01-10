@@ -1,6 +1,7 @@
 // Main extension entry point
 import * as vscode from 'vscode';
 import { RiwaqClient } from './client';
+import { ServerManager } from './serverManager';
 import { ArchitectureTreeProvider } from './views/architectureTree';
 import { ModulesTreeProvider } from './views/modulesTree';
 import { InsightsTreeProvider } from './views/insightsTree';
@@ -8,12 +9,16 @@ import { AskPanel } from './panels/askPanel';
 import { ArchitecturePanel } from './panels/architecturePanel';
 
 let client: RiwaqClient;
+let serverManager: ServerManager;
 let architectureProvider: ArchitectureTreeProvider;
 let modulesProvider: ModulesTreeProvider;
 let insightsProvider: InsightsTreeProvider;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('Riwaq Arch extension is now active');
+
+    // Initialize the server manager
+    serverManager = new ServerManager();
 
     // Initialize the client
     const config = vscode.workspace.getConfiguration('riwaq');
@@ -33,6 +38,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register commands
     context.subscriptions.push(
+        vscode.commands.registerCommand('riwaq.startServer', () => serverManager.start()),
+        vscode.commands.registerCommand('riwaq.stopServer', () => serverManager.stop()),
         vscode.commands.registerCommand('riwaq.analyzeWorkspace', analyzeWorkspace),
         vscode.commands.registerCommand('riwaq.generateDocs', generateDocs),
         vscode.commands.registerCommand('riwaq.askQuestion', () => askQuestion(context)),
@@ -40,8 +47,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('riwaq.refreshSnapshot', refreshSnapshot)
     );
 
-    // Auto-analyze on startup if configured
-    if (config.get('autoAnalyze')) {
+    // Auto-start server if configured
+    if (config.get('autoStartServer')) {
+        const success = await serverManager.start();
+        if (success && config.get('autoAnalyze')) {
+            vscode.commands.executeCommand('riwaq.analyzeWorkspace');
+        }
+    } else if (config.get('autoAnalyze')) {
+        // Only run analysis if server isn't auto-managed (user running it manually)
         vscode.commands.executeCommand('riwaq.analyzeWorkspace');
     }
 
@@ -81,10 +94,13 @@ async function analyzeWorkspace() {
 
             vscode.window.showInformationMessage('Riwaq: Workspace analysis complete!');
         } catch (error: any) {
-            vscode.window.showErrorMessage(`Riwaq: Analysis failed - ${error.message}`);
+            vscode.window.showErrorMessage(`Riwaq: Analysis failed - ${error.message} (Is the server running?)`);
         }
     });
 }
+
+// ... other functions (generateDocs, askQuestion, etc.) remain roughly the same, 
+// just updating the error message in generateDocs slightly and copying them back
 
 async function generateDocs() {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -143,5 +159,8 @@ async function refreshSnapshot() {
 }
 
 export function deactivate() {
+    if (serverManager) {
+        serverManager.stop();
+    }
     console.log('Riwaq Arch extension is now deactivated');
 }
