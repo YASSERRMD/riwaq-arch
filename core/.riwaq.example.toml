@@ -1,0 +1,64 @@
+# Riwaq Arch Configuration File
+# Copy this to .riwaq.toml in your project root
+
+# LLM Configuration
+[llm]
+# API endpoint (supports OpenRouter, Z.ai, or compatible APIs)
+endpoint = "${RIWAQ_LLM_ENDPOINT:-https://api.openrouter.ai/api/v1}"
+# Model to use (default: GLM-4.7 with 200K context)
+model = "glm-4"
+# Maximum tokens for generation
+max_tokens = 4096
+# Temperature (0.0 = deterministic, 1.0 = creative)
+temperature = 0.3
+# Enable thinking mode for extra reasoning
+thinking_mode = false
+# Request timeout in seconds
+timeout_secs = 120
+
+# Analysis Configuration
+[analysis]
+# Maximum commits to analyze from git history
+max_commits = 500
+# Include test files in analysis
+include_tests = true
+# Maximum file size to analyze (in bytes)
+max_file_size = 10485760  # 10MB
+
+# Excluded directories (in addition to defaults)
+excluded_dirs = [
+    "target",
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "vendor",
+    "__pycache__",
+    ".next",
+]
+
+# File extensions to include
+included_extensions = [
+    "rs", "py", "js", "ts", "tsx", "jsx", "go",
+    "java", "kt", "rb", "php", "c", "cpp", "h"
+]
+
+# Documentation Generation
+[docs]
+# Output directory for generated documentation
+output_dir = "./generated-docs"
+# Include Mermaid diagrams
+include_diagrams = true
+# Generate ADRs (Architecture Decision Records)
+generate_adrs = true
+# Include API reference
+generate_api_ref = true
+
+# Embedding/Vector Search (for Q&A)
+[embedding]
+# Embedding provider: "openai", "cohere", "local", or "mock"
+provider = "mock"
+# Dimension for embeddings
+dimension = 384
+# Index path for local storage
+index_path = "./.riwaq-index"

@@ -1,0 +1,86 @@
+[package]
+name = "riwaq-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["YASSERRMD <arafath.yasser@gmail.com>"]
+description = "A codebase analysis and documentation generation engine powered by LLM"
+license = "MIT"
+repository = "https://github.com/YASSERRMD/riwaq-arch"
+
+[lib]
+name = "riwaq_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "riwaq"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# CLI
+clap = { version = "4.4", features = ["derive", "env"] }
+
+# HTTP client (using rustls for cross-platform TLS)
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Tree-sitter for parsing
+tree-sitter = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-python = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-go = "0.20"
+
+# Git operations (vendored to avoid system OpenSSL dependency)
+git2 = { version = "0.18", features = ["vendored-libgit2", "vendored-openssl"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# File system utilities
+walkdir = "2.4"
+ignore = "0.4"
+globset = "0.4"
+
+# Async utilities
+futures = "0.3"
+async-trait = "0.1"
+
+# Configuration
+config = "0.14"
+dotenvy = "0.15"
+
+# UUID for unique identifiers
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Date and time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Semantic search (TODO: add in Phase 2)
+# tantivy = "0.22"  # Will be added when semantic search is implemented
+
+[dev-dependencies]
+tempfile = "3.9"
+tokio-test = "0.4"
+mockall = "0.12"
+
+[features]
+default = []
+# Enable all language parsers
+all-languages = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
