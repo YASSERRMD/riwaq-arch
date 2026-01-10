@@ -40,14 +40,38 @@
 3. Search for "Riwaq Arch"
 4. Click Install
 
-### From Source
+### Installing from GitHub (Manual)
+If you want to install the latest version directly from this repository:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/YASSERRMD/riwaq-arch.git
+   cd riwaq-arch/vscode-extension
+   ```
+
+2. **Package the extension**:
+   You need `npm` and `vsce` installed.
+   ```bash
+   npm install
+   npm install -g @vscode/vsce
+   vsce package
+   ```
+   This will create a `riwaq-arch-0.1.0.vsix` file.
+
+3. **Install the VSIX**:
+   - Open VS Code
+   - Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+   - Type "Install from VSIX..."
+   - Select the generated `.vsix` file
+
+### Development Setup (Debugging)
 ```bash
 cd vscode-extension
 npm install
 npm run compile
 ```
 
-Then press F5 to launch the Extension Development Host.
+Then press `F5` to launch a new VS Code window with the extension loaded for debugging.
 
 ## Usage
 
