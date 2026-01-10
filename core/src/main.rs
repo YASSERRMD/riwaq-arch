@@ -176,9 +176,46 @@ async fn run_docgen(path: PathBuf, output: PathBuf, skip_llm: bool) -> anyhow::R
 }
 
 async fn run_ask(path: PathBuf, question: String, stream: bool) -> anyhow::Result<()> {
-    // TODO: Implement in Phase 2
+    use riwaq_core::analysis::analyzer::CodebaseAnalyzer;
+    use riwaq_core::llm::{HttpLlmClient, LLMClient, LLMConfig};
+
     info!(?path, %question, stream, "Question answering");
-    println!("Question answering will be implemented in Phase 2");
+
+    // First, analyze the codebase
+    let analyzer = CodebaseAnalyzer::new(&path);
+    let snapshot = analyzer.analyze().await?;
+
+    // Create LLM client
+    let config = LLMConfig::default();
+    
+    // Check if API key is configured
+    if config.api_key.is_none() {
+        println!("Error: No LLM API key configured.");
+        println!("Set the RIWAQ_LLM_API_KEY environment variable.");
+        return Ok(());
+    }
+
+    let client = HttpLlmClient::new(config)?;
+
+    // Ask the question
+    println!("Analyzing codebase and asking LLM...\n");
+    
+    if stream {
+        // Streaming not fully implemented yet
+        let response = client.answer_question(&snapshot, &question).await?;
+        println!("{}", response.answer);
+    } else {
+        let response = client.answer_question(&snapshot, &question).await?;
+        println!("{}", response.answer);
+        
+        if !response.file_refs.is_empty() {
+            println!("\n## Referenced Files:");
+            for file_ref in &response.file_refs {
+                println!("- {}: {}", file_ref.path, file_ref.relevance);
+            }
+        }
+    }
+
     Ok(())
 }
 
