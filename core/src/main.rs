@@ -169,9 +169,34 @@ async fn run_analyze(
 }
 
 async fn run_docgen(path: PathBuf, output: PathBuf, skip_llm: bool) -> anyhow::Result<()> {
-    // TODO: Implement in Phase 3
+    use riwaq_core::analysis::analyzer::CodebaseAnalyzer;
+    use riwaq_core::docs::{DocGenerator, DocGeneratorConfig};
+
     info!(?path, ?output, skip_llm, "Documentation generation");
-    println!("Documentation generation will be implemented in Phase 3");
+
+    // Analyze the codebase
+    println!("Analyzing codebase...");
+    let analyzer = CodebaseAnalyzer::new(&path);
+    let snapshot = analyzer.analyze().await?;
+
+    // Configure documentation generator
+    let config = DocGeneratorConfig::new(&output)
+        .with_llm(!skip_llm);
+
+    // Generate documentation
+    println!("Generating documentation...");
+    let generator = DocGenerator::new(config);
+    let result = generator.generate(&snapshot).await?;
+
+    println!("\n✅ Documentation generated successfully!");
+    println!("   Output: {}", output.display());
+    println!("   Files:  {}", result.files.len());
+    println!("   Time:   {}ms", result.generation_time_ms);
+    println!("\nGenerated files:");
+    for file in &result.files {
+        println!("   - {} ({} bytes)", file.path.display(), file.size);
+    }
+
     Ok(())
 }
 
