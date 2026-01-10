@@ -108,6 +108,7 @@ impl std::fmt::Display for Language {
 
 /// Summary of a source code file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileSummary {
     /// Relative path from project root.
     pub path: PathBuf,
@@ -172,6 +173,7 @@ impl FileSummary {
 
 /// Summary of a type (class, struct, enum, interface).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TypeSummary {
     /// Name of the type.
     pub name: String,
@@ -225,6 +227,7 @@ pub enum Visibility {
 
 /// Field information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldInfo {
     /// Field name.
     pub name: String,
@@ -241,6 +244,7 @@ pub struct FieldInfo {
 
 /// Import statement information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportInfo {
     /// Import path (e.g., "std::collections::HashMap").
     pub path: String,
@@ -260,6 +264,7 @@ pub struct ImportInfo {
 
 /// Export statement information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportInfo {
     /// Exported item name.
     pub name: String,

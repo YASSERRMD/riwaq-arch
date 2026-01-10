@@ -19,6 +19,7 @@ use crate::llm::LLMClient;
 // ============================================================================
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalyzeRequest {
     pub path: String,
     #[serde(default = "default_max_commits")]
@@ -32,6 +33,7 @@ fn default_max_commits() -> usize {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalyzeResponse {
     pub success: bool,
     pub snapshot: Option<crate::models::snapshot::CodebaseSnapshot>,
@@ -39,6 +41,7 @@ pub struct AnalyzeResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocgenRequest {
     pub path: String,
     pub output: String,
@@ -47,6 +50,7 @@ pub struct DocgenRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocgenResponse {
     pub success: bool,
     pub file_count: usize,
@@ -56,12 +60,14 @@ pub struct DocgenResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AskRequest {
     pub question: String,
     pub project_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AskResponse {
     pub success: bool,
     pub answer: Option<String>,
@@ -71,6 +77,7 @@ pub struct AskResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileRef {
     pub path: String,
     pub line: Option<usize>,
@@ -78,6 +85,7 @@ pub struct FileRef {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HealthResponse {
     pub status: String,
     pub version: String,
@@ -85,6 +93,7 @@ pub struct HealthResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiagramResponse {
     pub success: bool,
     pub diagram: String,

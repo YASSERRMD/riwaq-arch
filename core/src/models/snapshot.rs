@@ -12,6 +12,7 @@ use super::module::{DependencyGraph, ModuleSummary};
 /// This is the main data structure produced by the analyzer and
 /// consumed by documentation generators and the LLM.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CodebaseSnapshot {
     /// Snapshot metadata.
     pub metadata: SnapshotMetadata,
@@ -110,6 +111,7 @@ impl CodebaseSnapshot {
 
 /// Metadata about the snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SnapshotMetadata {
     /// Project root path.
     pub root_path: PathBuf,
@@ -152,6 +154,7 @@ impl SnapshotMetadata {
 
 /// Configuration used for analysis.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalysisConfig {
     /// Maximum file size to analyze.
     pub max_file_size: u64,
@@ -171,6 +174,7 @@ pub struct AnalysisConfig {
 
 /// Overall codebase statistics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CodebaseStatistics {
     /// Total number of files analyzed.
     pub total_files: usize,
@@ -199,6 +203,7 @@ pub struct CodebaseStatistics {
 
 /// Count of files and lines per language.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LanguageCount {
     /// Language name.
     pub language: String,
@@ -212,6 +217,7 @@ pub struct LanguageCount {
 
 /// Information about a service or entry point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceInfo {
     /// Service name.
     pub name: String,
@@ -248,6 +254,7 @@ pub enum ServiceKind {
 
 /// API endpoint information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApiEndpoint {
     /// HTTP method (GET, POST, etc.).
     pub method: String,
@@ -276,6 +283,7 @@ pub struct ApiEndpoint {
 
 /// API parameter information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApiParameter {
     /// Parameter name.
     pub name: String,

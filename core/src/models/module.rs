@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 /// Summary of a module or package.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModuleSummary {
     /// Module name.
     pub name: String,
@@ -64,6 +65,7 @@ impl ModuleSummary {
 
 /// Dependency on another module.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModuleDependency {
     /// Target module path.
     pub target: String,
@@ -93,6 +95,7 @@ pub enum DependencyKind {
 
 /// Metrics for a module.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModuleMetrics {
     /// Total lines of code.
     pub lines_of_code: usize,
@@ -130,6 +133,7 @@ impl ModuleMetrics {
 
 /// Dependency graph representing relationships between modules.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DependencyGraph {
     /// Nodes in the graph (module paths).
     pub nodes: Vec<String>,
@@ -143,6 +147,7 @@ pub struct DependencyGraph {
 
 /// Edge in the dependency graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DependencyEdge {
     /// Target module.
     pub target: String,

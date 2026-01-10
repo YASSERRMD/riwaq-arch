@@ -6,6 +6,7 @@ use super::file::Visibility;
 
 /// Summary of a function or method.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FunctionSummary {
     /// Function name.
     pub name: String,
@@ -74,6 +75,7 @@ impl FunctionSummary {
 
 /// Function parameter information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ParameterInfo {
     /// Parameter name.
     pub name: String,
@@ -112,6 +114,7 @@ impl ParameterInfo {
 
 /// Complexity metrics for a function.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ComplexityMetrics {
     /// Cyclomatic complexity.
     pub cyclomatic: u32,
