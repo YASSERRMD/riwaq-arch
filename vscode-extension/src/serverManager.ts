@@ -26,17 +26,22 @@ export class ServerManager {
         this.outputChannel.appendLine('Starting Riwaq server...');
 
         const config = vscode.workspace.getConfiguration('riwaq');
-        let executable = config.get<string>('serverPath');
+        let executable = config.get<string>('serverPath') || '';
 
-        // Auto-detect bundled binary if not configured
-        if (!executable) {
+        // Auto-detect bundled binary if not explicitly configured by user
+        // (empty string or 'riwaq' means use bundled)
+        if (!executable || executable === 'riwaq') {
             const bundledPath = path.join(this.context.extensionUri.fsPath, 'bin', 'riwaq');
+            this.outputChannel.appendLine(`Checking for bundled binary at: ${bundledPath}`);
             if (fs.existsSync(bundledPath)) {
                 executable = bundledPath;
                 this.outputChannel.appendLine(`Using bundled binary at: ${executable}`);
             } else {
                 executable = 'riwaq'; // Fallback to PATH
+                this.outputChannel.appendLine(`Bundled binary not found, trying PATH...`);
             }
+        } else {
+            this.outputChannel.appendLine(`Using custom binary path: ${executable}`);
         }
 
         const serverUrl = config.get<string>('serverUrl') || 'http://127.0.0.1:9527';

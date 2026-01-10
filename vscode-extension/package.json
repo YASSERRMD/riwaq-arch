@@ -2,7 +2,7 @@
   "name": "riwaq-arch",
   "displayName": "Riwaq Arch - Living Documentation",
   "description": "AI-powered codebase documentation and architecture analysis for VS Code",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "yasserrmd",
   "repository": {
     "type": "git",
@@ -125,8 +125,8 @@
         },
         "riwaq.serverPath": {
           "type": "string",
-          "default": "riwaq",
-          "description": "Path to the riwaq executable (leave 'riwaq' if in PATH)"
+          "default": "",
+          "description": "Path to the riwaq executable (leave empty to use bundled binary)"
         },
         "riwaq.autoStartServer": {
           "type": "boolean",
