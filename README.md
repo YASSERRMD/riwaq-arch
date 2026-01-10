@@ -119,11 +119,29 @@ riwaq serve --host 127.0.0.1 --port 9527
 
 ## Configuration
 
+### 🤖 LLM Setup
+
+To use AI features, you **must** configure an LLM provider. Riwaq supports OpenRouter, OpenAI, and compatible services.
+
+👉 **[Read the Detailed LLM Setup Guide](docs/LLM_SETUP.md)**
+
+#### Quick Setup (Environment Variables)
+
+```bash
+# Option 1: OpenRouter (Recommended)
+export RIWAQ_LLM_API_KEY="sk-or-..."
+
+# Option 2: OpenAI
+export RIWAQ_LLM_API_KEY="sk-..."
+export RIWAQ_LLM_ENDPOINT="https://api.openai.com/v1"
+export RIWAQ_LLM_MODEL="gpt-4-turbo"
+```
+
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `RIWAQ_LLM_ENDPOINT` | LLM API endpoint | `https://open.routers.ai/api/v1` |
+| `RIWAQ_LLM_ENDPOINT` | LLM API endpoint | `https://openrouter.ai/api/v1` |
 | `RIWAQ_LLM_MODEL` | LLM model to use | `glm-4` |
 | `RIWAQ_LLM_API_KEY` | API key for LLM provider | - |
 
