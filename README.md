@@ -108,6 +108,13 @@ Get AI-powered answers to questions about your codebase.
 riwaq serve --host 127.0.0.1 --port 9527
 ```
 
+> [!WARNING]
+> **Docker vs. VS Code Extension**
+> 
+> While you can run the server via Docker, we **recommend running it natively** (`riwaq serve`) when using the VS Code extension.
+>
+> **Why?** Docker containers have different file paths than your host machine (e.g., `/data/project` vs `/Users/you/project`). The VS Code extension sends your local host paths to the server, which the Docker container won't recognize unless custom volume mapping mirrors your exact host structure.
+
 ---
 
 ## Configuration

@@ -60,9 +60,12 @@ To use the Dockerized server with the VS Code extension:
 1. Start the Docker container.
 2. Open your VS Code settings.
 3. Ensure `riwaq.serverUrl` is set to `http://127.0.0.1:9527`.
-4. **Note:** The extension currently sends *local host paths* to the server. Since the server is in Docker, path mapping might fail if the paths don't match exactly. 
+4. **Note:** The extension currently sends *local host paths* to the server. Since the server is in Docker, path mapping might fail if the paths don't match exactly.
    
-   *For the best experience with the VS Code extension currently, we recommend running the server natively or ensuring your Docker mount path mirrors your local path exactly.*
+   > [!IMPORTANT]
+   > For the best experience with the VS Code extension, **we recommend running the server natively** (`riwaq serve`) on your host machine.
+   >
+   > If you must use Docker with VS Code, you need to ensure the volume mount path in `docker-compose.yml` exactly matches your local path (e.g., if project is at `/Users/me/proj`, you must mount it to `/Users/me/proj` in the container).
 
 ## Building Manually
 
