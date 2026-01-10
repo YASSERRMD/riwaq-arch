@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  riwaq:
+    build: .
+    image: riwaq-arch:latest
+    container_name: riwaq-server
+    ports:
+      - "9527:9527"
+    volumes:
+      # Mount your projects directory so Riwaq can analyze them
+      # CHANGE THIS path to where your projects live on your host machine
+      - ${PROJECTS_DIR:-./}:/data
+    environment:
+      # LLM Configuration
+      - RIWAQ_LLM_API_KEY=${RIWAQ_LLM_API_KEY}
+      - RIWAQ_LLM_ENDPOINT=${RIWAQ_LLM_ENDPOINT:-https://openrouter.ai/api/v1}
+      - RIWAQ_LLM_MODEL=${RIWAQ_LLM_MODEL:-glm-4}
+
+      # Server config
+      - RUST_LOG=info
+    restart: unless-stopped
