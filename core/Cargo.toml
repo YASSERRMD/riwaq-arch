@@ -1,5 +1,5 @@
 [package]
-name = "riwaq-arch-core"
+name = "riwaq-core"
 version = "0.1.0"
 edition = "2021"
 authors = ["YASSERRMD <arafath.yasser@gmail.com>"]
@@ -8,11 +8,11 @@ license = "MIT"
 repository = "https://github.com/YASSERRMD/riwaq-arch"
 
 [lib]
-name = "riwaq_arch_core"
+name = "riwaq_core"
 path = "src/lib.rs"
 
 [[bin]]
-name = "riwaq-arch"
+name = "riwaq"
 path = "src/main.rs"
 
 [dependencies]

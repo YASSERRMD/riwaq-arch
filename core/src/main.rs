@@ -4,7 +4,7 @@
 //! using LLM-powered insights.
 
 use clap::{Parser, Subcommand};
-use riwaq_arch_core::logging;
+use riwaq_core::logging;
 use std::path::PathBuf;
 use tracing::info;
 
@@ -100,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize logging
     logging::init_logging(cli.verbose)?;
 
-    info!(version = riwaq_arch_core::VERSION, "Starting Riwaq Arch");
+    info!(version = riwaq_core::VERSION, "Starting Riwaq");
 
     match cli.command {
         Commands::Analyze {
