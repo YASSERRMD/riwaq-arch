@@ -1,5 +1,6 @@
 // Main extension entry point
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { RiwaqClient } from './client';
 import { ServerManager } from './serverManager';
 import { ArchitectureTreeProvider } from './views/architectureTree';
@@ -138,13 +139,9 @@ async function generateDocs() {
         return;
     }
 
-    const outputPath = await vscode.window.showInputBox({
-        prompt: 'Output directory for documentation',
-        value: './generated-docs',
-        placeHolder: 'Path relative to workspace root'
-    });
-
-    if (!outputPath) return;
+    const workspacePath = workspaceFolders[0].uri.fsPath;
+    const outputPath = 'riwaq-generated-docs';
+    const fullOutputPath = path.join(workspacePath, outputPath);
 
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -152,20 +149,31 @@ async function generateDocs() {
         cancellable: false
     }, async (progress) => {
         try {
-            const workspacePath = workspaceFolders[0].uri.fsPath;
-            const result = await client.generateDocs(workspacePath, outputPath);
+            progress.report({ message: 'Analyzing codebase...' });
 
-            vscode.window.showInformationMessage(
-                `Documentation generated: ${result.fileCount} files`,
-                'Open Folder'
-            ).then(selection => {
-                if (selection === 'Open Folder') {
-                    vscode.commands.executeCommand('vscode.openFolder',
-                        vscode.Uri.file(`${workspacePath}/${outputPath}`),
-                        { forceNewWindow: false }
-                    );
-                }
-            });
+            // Ensure we have a snapshot first
+            if (!client.hasSnapshot()) {
+                await client.analyze(workspacePath);
+            }
+
+            progress.report({ message: 'Generating docs...' });
+            const result = await client.generateDocs(workspacePath, fullOutputPath);
+
+            // Show success with options
+            const selection = await vscode.window.showInformationMessage(
+                `✅ Documentation generated: ${result.fileCount} files in '${outputPath}'`,
+                'Open Folder',
+                'Open in Explorer'
+            );
+
+            if (selection === 'Open Folder') {
+                // Open the folder in VS Code
+                const folderUri = vscode.Uri.file(fullOutputPath);
+                vscode.commands.executeCommand('vscode.openFolder', folderUri, { forceNewWindow: true });
+            } else if (selection === 'Open in Explorer') {
+                // Reveal in system file manager
+                vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(fullOutputPath));
+            }
         } catch (error: any) {
             vscode.window.showErrorMessage(`Riwaq: Doc generation failed - ${error.message}`);
         }
