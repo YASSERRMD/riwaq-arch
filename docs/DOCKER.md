@@ -9,15 +9,29 @@ Run the Riwaq Arch server using Docker to avoid local dependency issues.
 
 ## Quick Start
 
-1. **Set your LLM API Key** (optional, but recommended for full features):
+## Quick Start
+
+1. **Set your LLM Configuration**:
+   You need to provide the API Key, Endpoint, and Model.
+
+   **Option A: OpenRouter (Default)**
+   ```bash
+   export RIWAQ_LLM_API_KEY="sk-or-..."
+   # Endpoint defaults to https://openrouter.ai/api/v1
+   # Model defaults to glm-4
+   ```
+
+   **Option B: Custom Provider (e.g., OpenAI)**
    ```bash
    export RIWAQ_LLM_API_KEY="sk-..."
+   export RIWAQ_LLM_ENDPOINT="https://api.openai.com/v1"
+   export RIWAQ_LLM_MODEL="gpt-4-turbo"
    ```
 
 2. **Start the Server**:
    ```bash
-   # By default, this mounts the current directory into the container at /data
-   # You can override this by setting PROJECTS_DIR
+   # Pass the variables to docker-compose
+   # You can also set them in a .env file in this directory
    
    PROJECTS_DIR=/path/to/my/projects docker-compose up -d
    ```
@@ -71,5 +85,10 @@ To use the Dockerized server with the VS Code extension:
 
 ```bash
 docker build -t riwaq-arch .
-docker run -p 9527:9527 -v $(pwd):/data -e RIWAQ_LLM_API_KEY=$RIWAQ_LLM_API_KEY riwaq-arch
+docker run -p 9527:9527 \
+  -v $(pwd):/data \
+  -e RIWAQ_LLM_API_KEY=$RIWAQ_LLM_API_KEY \
+  -e RIWAQ_LLM_ENDPOINT=${RIWAQ_LLM_ENDPOINT:-https://openrouter.ai/api/v1} \
+  -e RIWAQ_LLM_MODEL=${RIWAQ_LLM_MODEL:-glm-4} \
+  riwaq-arch
 ```
