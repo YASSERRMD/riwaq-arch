@@ -1,27 +1,33 @@
 # Riwaq Arch - VS Code Extension
 
+<div align="center">
+
+<img src="images/icon.png" alt="Riwaq Arch" width="128" height="128">
+
 **AI-powered codebase documentation and architecture analysis** for Visual Studio Code.
+
+</div>
 
 ## Features
 
-### 🔍 Codebase Analysis
+### Codebase Analysis
 - Multi-language code parsing (Rust, Python, JavaScript, TypeScript, Go)
 - Module detection and dependency graph construction
 - Service/entry point identification
 - Git history insights
 
-### 📚 Documentation Generation
+### Documentation Generation
 - Automatic architecture overview generation
 - Per-module documentation
 - Dependency analysis reports
 - Architecture Decision Records (ADRs)
 
-### 🤖 AI-Powered Q&A
+### AI-Powered Q&A
 - Ask natural language questions about your codebase
 - Get answers with file references
 - Powered by GLM-4 or any OpenAI-compatible LLM
 
-### 📊 Visual Architecture
+### Visual Architecture
 - Mermaid diagram generation
 - Interactive architecture exploration
 - Module health metrics
