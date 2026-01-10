@@ -13,12 +13,18 @@ let serverManager: ServerManager;
 let architectureProvider: ArchitectureTreeProvider;
 let modulesProvider: ModulesTreeProvider;
 let insightsProvider: InsightsTreeProvider;
+let serverStatusBar: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Riwaq Arch extension is now active');
 
+    // Initialize Status Bar Item
+    serverStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    serverStatusBar.command = 'riwaq.showServerMenu';
+    context.subscriptions.push(serverStatusBar);
+
     // Initialize the server manager
-    serverManager = new ServerManager();
+    serverManager = new ServerManager(context, serverStatusBar);
 
     // Initialize the client
     const config = vscode.workspace.getConfiguration('riwaq');
@@ -40,6 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('riwaq.startServer', () => serverManager.start()),
         vscode.commands.registerCommand('riwaq.stopServer', () => serverManager.stop()),
+        vscode.commands.registerCommand('riwaq.showServerMenu', () => showServerMenu()),
         vscode.commands.registerCommand('riwaq.analyzeWorkspace', analyzeWorkspace),
         vscode.commands.registerCommand('riwaq.generateDocs', generateDocs),
         vscode.commands.registerCommand('riwaq.askQuestion', () => askQuestion(context)),
@@ -53,9 +60,8 @@ export async function activate(context: vscode.ExtensionContext) {
         if (success && config.get('autoAnalyze')) {
             vscode.commands.executeCommand('riwaq.analyzeWorkspace');
         }
-    } else if (config.get('autoAnalyze')) {
-        // Only run analysis if server isn't auto-managed (user running it manually)
-        vscode.commands.executeCommand('riwaq.analyzeWorkspace');
+    } else {
+        serverManager.updateStatus(false); // Show "Off" status
     }
 
     // Watch for configuration changes
@@ -67,6 +73,29 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+}
+
+async function showServerMenu() {
+    const isRunning = await serverManager.isRunning();
+    const items = [];
+
+    if (isRunning) {
+        items.push({ label: '$(stop) Stop Server', description: 'Stop the Riwaq background process', command: 'riwaq.stopServer' });
+        items.push({ label: '$(refresh) Restart Server', description: 'Reload with current config', command: 'riwaq.startServer' });
+    } else {
+        items.push({ label: '$(play) Start Server', description: 'Start the Riwaq background process', command: 'riwaq.startServer' });
+    }
+
+    items.push({ label: '$(settings) Configure Server Path', description: 'Set path to custom binary', command: 'workbench.action.openSettings', args: ['riwaq.serverPath'] });
+
+    const selection = await vscode.window.showQuickPick(items, { placeHolder: 'Riwaq Server Control' });
+    if (selection) {
+        if (selection.command === 'workbench.action.openSettings' && selection.args) {
+            vscode.commands.executeCommand(selection.command, selection.args[0]);
+        } else {
+            vscode.commands.executeCommand(selection.command);
+        }
+    }
 }
 
 async function analyzeWorkspace() {

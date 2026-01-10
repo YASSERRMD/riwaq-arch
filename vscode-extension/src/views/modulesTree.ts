@@ -66,7 +66,7 @@ export class ModulesTreeProvider implements vscode.TreeDataProvider<ModuleItem> 
             'header'
         ));
         items.push(new ModuleItem(
-            `   Lines: ${module.metrics.linesOfCode.toLocaleString()}`,
+            `   Lines: ${(module.metrics.linesOfCode || 0).toLocaleString()}`,
             '',
             vscode.TreeItemCollapsibleState.None,
             'metric'

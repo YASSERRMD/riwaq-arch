@@ -163,7 +163,7 @@ ${mermaidDiagram}
                     <div class="stat-label">Services</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${snapshot.statistics.totalLines.toLocaleString()}</div>
+                    <div class="stat-value">${(snapshot.statistics.totalLines || 0).toLocaleString()}</div>
                     <div class="stat-label">Lines of Code</div>
                 </div>
             </div>

@@ -47,7 +47,7 @@ export class InsightsTreeProvider implements vscode.TreeDataProvider<InsightItem
         if (primaryLang) {
             items.push(new InsightItem(
                 '🔤 Primary Language',
-                `${primaryLang.language} (${primaryLang.lineCount.toLocaleString()} lines)`,
+                `${primaryLang.language} (${(primaryLang.lineCount || 0).toLocaleString()} lines)`,
                 vscode.TreeItemCollapsibleState.None,
                 'insight',
                 'language'

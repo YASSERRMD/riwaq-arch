@@ -97,11 +97,11 @@ export class ArchitectureTreeProvider implements vscode.TreeDataProvider<Archite
             new ArchitectureItem(`Modules: ${stats.totalModules}`, '', vscode.TreeItemCollapsibleState.None, 'stat'),
             new ArchitectureItem(`Functions: ${stats.totalFunctions}`, '', vscode.TreeItemCollapsibleState.None, 'stat'),
             new ArchitectureItem(`Types: ${stats.totalTypes}`, '', vscode.TreeItemCollapsibleState.None, 'stat'),
-            new ArchitectureItem(`Lines: ${stats.totalLines.toLocaleString()}`, '', vscode.TreeItemCollapsibleState.None, 'stat'),
+            new ArchitectureItem(`Lines: ${(stats.totalLines || 0).toLocaleString()}`, '', vscode.TreeItemCollapsibleState.None, 'stat'),
             ...stats.languages.map(lang =>
                 new ArchitectureItem(
                     `${lang.language}: ${lang.fileCount} files`,
-                    `${lang.lineCount.toLocaleString()} lines`,
+                    `${(lang.lineCount || 0).toLocaleString()} lines`,
                     vscode.TreeItemCollapsibleState.None,
                     'language'
                 )

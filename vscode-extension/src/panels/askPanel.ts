@@ -85,6 +85,9 @@ export class AskPanel {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ask About Code</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -150,8 +153,32 @@ export class AskPanel {
         }
         .answer-content {
             line-height: 1.6;
-            white-space: pre-wrap;
         }
+        /* Markdown styles */
+        .answer-content pre {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .answer-content code {
+            font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
+            font-size: 13px;
+        }
+        .answer-content p {
+            margin-bottom: 10px;
+        }
+        .answer-content ul, .answer-content ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+        .answer-content h1, .answer-content h2, .answer-content h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
         .loading {
             display: flex;
             align-items: center;
@@ -192,6 +219,9 @@ export class AskPanel {
             border-radius: 4px;
             margin-bottom: 5px;
             cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
         }
         .file-ref:hover {
             background: var(--vscode-list-hoverBackground);
@@ -200,6 +230,7 @@ export class AskPanel {
             font-size: 0.8rem;
             color: var(--vscode-descriptionForeground);
             margin-top: 15px;
+            text-align: right;
         }
     </style>
 </head>
@@ -257,12 +288,15 @@ export class AskPanel {
                     break;
 
                 case 'answer':
-                    let html = '<div class="answer-content">' + escapeHtml(message.answer) + '</div>';
+                    // Convert Markdown to HTML
+                    const rawHtml = marked.parse(message.answer);
+                    
+                    let html = '<div class="answer-content">' + rawHtml + '</div>';
                     
                     if (message.fileRefs && message.fileRefs.length > 0) {
                         html += '<div class="file-refs"><h3>📁 Referenced Files</h3>';
                         for (const ref of message.fileRefs) {
-                            html += '<div class="file-ref">' + escapeHtml(ref.path) + ' - ' + escapeHtml(ref.relevance) + '</div>';
+                            html += '<div class="file-ref"><span>' + escapeHtml(ref.path) + '</span><span style="opacity:0.7">' + escapeHtml(ref.relevance) + '</span></div>';
                         }
                         html += '</div>';
                     }
@@ -270,6 +304,12 @@ export class AskPanel {
                     html += '<div class="confidence">Confidence: ' + Math.round(message.confidence * 100) + '%</div>';
                     
                     answerContainer.innerHTML = html;
+                    
+                    // Apply syntax highlighting
+                    document.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                    
                     askBtn.disabled = false;
                     break;
 
