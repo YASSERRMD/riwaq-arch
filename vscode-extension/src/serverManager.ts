@@ -58,7 +58,33 @@ export class ServerManager {
 
             this.serverProcess.on('error', (error) => {
                 this.outputChannel.appendLine(`Failed to start server: ${error.message}`);
-                vscode.window.showErrorMessage(`Riwaq: Failed to start server (${error.message}). Is 'riwaq' installed?`);
+
+                // Prompt user to select binary if it's not found
+                if ((error as any).code === 'ENOENT') {
+                    vscode.window.showErrorMessage(
+                        `Riwaq server binary not found. Please install it or configure the path.`,
+                        'Select Binary', 'Download Instructions'
+                    ).then(selection => {
+                        if (selection === 'Select Binary') {
+                            vscode.window.showOpenDialog({
+                                canSelectFiles: true,
+                                canSelectFolders: false,
+                                canSelectMany: false,
+                                openLabel: 'Select Riwaq Binary'
+                            }).then(uris => {
+                                if (uris && uris.length > 0) {
+                                    config.update('serverPath', uris[0].fsPath, vscode.ConfigurationTarget.Global);
+                                    vscode.window.showInformationMessage('Path updated. Please reload window or run "Start Server".');
+                                }
+                            });
+                        } else if (selection === 'Download Instructions') {
+                            vscode.env.openExternal(vscode.Uri.parse('https://github.com/YASSERRMD/riwaq-arch#installation'));
+                        }
+                    });
+                } else {
+                    vscode.window.showErrorMessage(`Riwaq: Failed to start server (${error.message})`);
+                }
+
                 this.serverProcess = null;
                 this.isStarting = false;
             });
