@@ -28,6 +28,7 @@ pub mod errors;
 pub mod llm;
 pub mod logging;
 pub mod models;
+pub mod server;
 
 // Re-export commonly used types
 pub use analysis::analyzer::CodebaseAnalyzer;
@@ -35,6 +36,7 @@ pub use docs::{DocGenerator, DocGeneratorConfig, GeneratedDocs};
 pub use errors::{RiwaqError, Result};
 pub use llm::{HttpLlmClient, LLMClient, LLMConfig, LLMResponse};
 pub use models::snapshot::CodebaseSnapshot;
+pub use server::{create_router, AppState};
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

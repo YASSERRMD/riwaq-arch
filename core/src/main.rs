@@ -245,8 +245,29 @@ async fn run_ask(path: PathBuf, question: String, stream: bool) -> anyhow::Resul
 }
 
 async fn run_serve(host: String, port: u16) -> anyhow::Result<()> {
-    // TODO: Implement HTTP server for VS Code extension
-    info!(%host, %port, "HTTP server");
-    println!("HTTP server will be implemented in Phase 4");
+    use riwaq_core::server::{routes, AppState};
+    use riwaq_core::llm::LLMConfig;
+
+    info!(%host, %port, "Starting HTTP server");
+
+    println!("\n🚀 Riwaq Arch Server");
+    println!("   Version: {}", riwaq_core::VERSION);
+    println!("   Listening on: http://{}:{}", host, port);
+    println!("\nEndpoints:");
+    println!("   GET  /health              - Health check");
+    println!("   GET  /projects            - List analyzed projects");
+    println!("   POST /analyze             - Analyze a codebase");
+    println!("   POST /docgen              - Generate documentation");
+    println!("   POST /ask                 - Ask about the codebase");
+    println!("   GET  /architecture/diagram - Get architecture diagram");
+    println!("   GET  /dependencies/diagram - Get dependency diagram");
+    println!("\nPress Ctrl+C to stop\n");
+
+    // Create application state
+    let state = AppState::new(LLMConfig::default());
+
+    // Start server
+    routes::run_server(&host, port, state).await?;
+
     Ok(())
 }
