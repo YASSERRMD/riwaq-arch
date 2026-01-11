@@ -9,6 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC.svg)](vscode-extension/)
+[![JetBrains](https://img.shields.io/badge/JetBrains-Plugin-000000.svg)](jetbrains-plugin/)
 
 *Transform your codebase into living documentation*
 
@@ -181,11 +182,13 @@ timeout_secs = 120
 
 ---
 
-## VS Code Extension
+## IDE Extensions
+
+### VS Code Extension
 
 The Riwaq VS Code extension provides an integrated experience directly in your editor.
 
-### Features
+#### Features
 
 - **Architecture View**: Visual tree view of your project structure
 - **Module Explorer**: Browse modules with health metrics
@@ -193,7 +196,7 @@ The Riwaq VS Code extension provides an integrated experience directly in your e
 - **Ask Panel**: Interactive Q&A about your codebase
 - **Architecture Diagrams**: Mermaid diagram visualization
 
-### Installation
+#### Installation
 
 1. Open VS Code
 2. Go to Extensions (`Ctrl+Shift+X`)
@@ -207,6 +210,85 @@ npm install
 npm run compile
 # Press F5 to launch Extension Development Host
 ```
+
+### JetBrains Plugin
+
+The Riwaq JetBrains plugin brings the same powerful features to IntelliJ IDEA, PyCharm, WebStorm, and other JetBrains IDEs.
+
+#### Features
+
+- **Tool Window**: Comprehensive 4-tab interface (Modules, Ask AI, Diagram, Insights)
+- **Server Management**: Built-in server process control with auto-start capability
+- **Interactive Chat UI**: AI-powered Q&A with markdown rendering and file references
+- **Architecture Diagrams**: Mermaid-based visualization with zoom controls
+- **Code Health Metrics**: Real-time statistics on coupling, cohesion, and module quality
+- **Status Bar Widget**: Visual indicator showing server status
+- **Context Menu Integration**: Ask about selected code directly from the editor
+
+#### Supported IDEs
+
+- IntelliJ IDEA (Community & Ultimate)
+- PyCharm (Community & Professional)
+- WebStorm
+- PhpStorm
+- RubyMine
+- CLion
+- GoLand
+- DataGrip
+- Rider
+- AppCode
+
+#### Installation
+
+**From Source:**
+
+1. Clone the repository
+2. Open the `jetbrains-plugin` directory in IntelliJ IDEA
+3. Run `./gradlew buildPlugin`
+4. The plugin will be built in `build/distributions/`
+5. Install from: **IntelliJ IDEA → Settings → Plugins → Gear Icon → Install Plugin from Disk**
+
+**Development:**
+
+```bash
+cd jetbrains-plugin
+./gradlew buildPlugin    # Build plugin
+./gradlew runIde         # Run in development IDE
+./gradlew check          # Run tests and verifications
+```
+
+#### Configuration
+
+Configure the plugin via **Settings → Tools → Riwaq Arch**:
+
+- **Server URL**: Where the Riwaq server is running (default: `http://127.0.0.1:9527`)
+- **Server Binary Path**: Optional custom path to the `riwaq` binary
+- **Auto-start Server**: Automatically start server when IDE opens
+- **LLM Configuration**: API key, endpoint, and model selection
+- **Excluded Directories**: Directories to skip during analysis
+
+Project-level settings are available in **Settings → Project → Riwaq Arch**:
+
+- **Auto-analyze**: Automatically re-analyze on file changes
+- **Excluded Files**: File patterns to exclude
+- **Custom Prompt**: Additional instructions for AI analysis
+
+#### Actions
+
+Available from **Tools → Riwaq Actions**:
+
+- **Start Riwaq Server**: Manually start the analysis server
+- **Stop Riwaq Server**: Stop the running server
+- **Restart Riwaq Server**: Restart the server
+- **Analyze Project**: Analyze the current project
+- **Ask About Codebase**: Open the AI Q&A panel
+- **View Architecture Diagram**: Open the diagram visualization
+
+#### Requirements
+
+- IntelliJ IDEA 2023.2 or later (or compatible JetBrains IDE)
+- Java 17 or later
+- Riwaq server (bundled or user-provided)
 
 ---
 
@@ -295,6 +377,18 @@ riwaq-arch/
 │   │   └── panels/          # Webview panels
 │   └── package.json
 │
+├── jetbrains-plugin/        # JetBrains IDE plugin
+│   ├── src/main/kotlin/
+│   │   ├── actions/         # Menu actions and commands
+│   │   ├── client/          # API client for server
+│   │   ├── server/          # Server process management
+│   │   ├── settings/        # Configuration UI
+│   │   ├── statusbar/       # Status bar widget
+│   │   ├── toolwindow/      # Main UI panels
+│   │   └── listeners/       # Project lifecycle events
+│   ├── build.gradle.kts     # Gradle build config
+│   └── plugin.xml           # Plugin manifest
+│
 └── README.md
 ```
 
@@ -341,6 +435,13 @@ riwaq ask --path . --question "What is this project?"
 1. Ensure server is running: `riwaq serve`
 2. Check server URL in VS Code settings
 3. Verify firewall allows localhost connections
+
+**JetBrains Plugin Not Connecting**
+1. Ensure server is running: Check status bar widget (should show 🟢)
+2. Start server manually: **Tools → Riwaq Actions → Start Riwaq Server**
+3. Check server URL in **Settings → Tools → Riwaq Arch**
+4. Verify server binary path is correct
+5. Check plugin logs in IDE's internal log viewer
 
 ---
 
