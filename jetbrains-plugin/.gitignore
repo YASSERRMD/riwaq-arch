@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# macOS
+.DS_Store
+
+# Output
+build/
+distributions/
+
+# User-specific files
+.gradle/
+
+# Log files
+*.log
+
+# Package files
+*.zip
+*.tar.gz

@@ -1,0 +1,94 @@
+<idea-plugin>
+    <id>com.riwaq.arch</id>
+    <name>Riwaq Arch</name>
+    <vendor email="yasser@example.com" url="https://github.com/YASSERRMD">YASSERRMD</vendor>
+
+    <description><![CDATA[
+        <p>AI-powered codebase documentation and architecture analysis tool.</p>
+        <p>Features:</p>
+        <ul>
+            <li>Automatic architecture diagram generation</li>
+            <li>Interactive codebase documentation</li>
+            <li>AI-powered Q&A about your code</li>
+            <li>Code health metrics and insights</li>
+            <li>Module dependency visualization</li>
+        </ul>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <h3>1.0.0</h3>
+        <ul>
+            <li>Initial release</li>
+            <li>Architecture diagram generation</li>
+            <li>Interactive documentation panel</li>
+            <li>AI-powered codebase Q&A</li>
+        </ul>
+    ]]></change-notes>
+
+    <!-- Product and plugin compatibility requirements -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Tool Windows -->
+        <toolWindow id="Riwaq Architecture" factoryClass="com.riwaq.arch.toolwindow.ArchitectureToolWindowFactory"
+                    anchor="right" icon="/icons/icon.svg"/>
+
+        <!-- Application Settings -->
+        <applicationConfigurable parentId="tools" id="RiwaqSettings"
+                                 instance="com.riwaq.arch.settings.RiwaqConfigurable"
+                                 displayName="Riwaq Arch"/>
+
+        <!-- Project Settings -->
+        <projectConfigurable parentId="project" id="RiwaqProjectSettings"
+                             instance="com.riwaq.arch.settings.RiwaqProjectConfigurable"
+                             displayName="Riwaq Arch"/>
+
+        <!-- Status Bar Widget -->
+        <statusBarWidgetFactory id="RiwaqStatusBar"
+                                implementation="com.riwaq.arch.statusbar.RiwaqStatusBarWidgetFactory"/>
+    </extensions>
+
+    <actions>
+        <!-- Main Actions -->
+        <group id="Riwaq.Actions" text="Riwaq Actions" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="Riwaq.StartServer"
+                    class="com.riwaq.arch.actions.StartServerAction"
+                    text="Start Riwaq Server"
+                    description="Start the Riwaq analysis server"/>
+            <action id="Riwaq.StopServer"
+                    class="com.riwaq.arch.actions.StopServerAction"
+                    text="Stop Riwaq Server"
+                    description="Stop the Riwaq analysis server"/>
+            <action id="Riwaq.RestartServer"
+                    class="com.riwaq.arch.actions.RestartServerAction"
+                    text="Restart Riwaq Server"
+                    description="Restart the Riwaq analysis server"/>
+            <action id="Riwaq.AnalyzeProject"
+                    class="com.riwaq.arch.actions.AnalyzeProjectAction"
+                    text="Analyze Project"
+                    description="Analyze the current project"/>
+            <action id="Riwaq.OpenAskPanel"
+                    class="com.riwaq.arch.actions.OpenAskPanelAction"
+                    text="Ask About Codebase"
+                    description="Open AI Q&A panel"/>
+            <action id="Riwaq.OpenArchitecturePanel"
+                    class="com.riwaq.arch.actions.OpenArchitecturePanelAction"
+                    text="View Architecture Diagram"
+                    description="View architecture diagram"/>
+        </group>
+
+        <!-- Editor Context Menu -->
+        <action id="Riwaq.AskAboutSelection"
+                class="com.riwaq.arch.actions.AskAboutSelectionAction"
+                text="Ask Riwaq About Selection"
+                description="Ask AI about selected code">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="EditorContextSearch"/>
+        </action>
+    </actions>
+
+    <applicationListeners>
+        <listener class="com.riwaq.arch.listeners.ProjectManagerListener"
+                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
+    </applicationListeners>
+</idea-plugin>
