@@ -243,10 +243,20 @@ The Riwaq JetBrains plugin brings the same powerful features to IntelliJ IDEA, P
 **From Source:**
 
 1. Clone the repository
-2. Open the `jetbrains-plugin` directory in IntelliJ IDEA
-3. Run `./gradlew buildPlugin`
-4. The plugin will be built in `build/distributions/`
+2. Build the Riwaq core binary:
+   ```bash
+   cd core
+   cargo build --release
+   ```
+3. Build the plugin:
+   ```bash
+   cd jetbrains-plugin
+   ./gradlew buildPlugin
+   ```
+4. The plugin will be built in `build/distributions/` with the bundled Riwaq binary
 5. Install from: **IntelliJ IDEA → Settings → Plugins → Gear Icon → Install Plugin from Disk**
+
+**Note**: The build process automatically bundles the Riwaq server binary, just like the VS Code extension.
 
 **Development:**
 
@@ -262,10 +272,15 @@ cd jetbrains-plugin
 Configure the plugin via **Settings → Tools → Riwaq Arch**:
 
 - **Server URL**: Where the Riwaq server is running (default: `http://127.0.0.1:9527`)
-- **Server Binary Path**: Optional custom path to the `riwaq` binary
-- **Auto-start Server**: Automatically start server when IDE opens
+- **Server Binary Path**: Optional custom path to the `riwaq` binary (uses bundled binary by default)
+- **Auto-start Server**: Automatically start bundled server when IDE opens
 - **LLM Configuration**: API key, endpoint, and model selection
 - **Excluded Directories**: Directories to skip during analysis
+
+The plugin includes a **bundled Riwaq server binary** and searches for it in:
+1. Custom path (if specified)
+2. Bundled binary in plugin directory
+3. System PATH
 
 Project-level settings are available in **Settings → Project → Riwaq Arch**:
 

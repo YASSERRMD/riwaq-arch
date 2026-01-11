@@ -252,16 +252,34 @@ class ServerManager : Disposable {
             else -> "riwaq"
         }
 
-        // Try to find in the plugin's lib directory
-        val pluginLibPath = File(System.getProperty("user.dir"), "lib").absolutePath
-        val bundledServer = File(pluginLibPath, binaryName)
+        // Try multiple possible locations for the bundled binary
+        val possiblePaths = listOf(
+            // Plugin lib/bin directory (where Gradle copies it)
+            File(System.getProperty("user.dir"), "lib/bin/$binaryName"),
+            // Alternative plugin installation locations
+            File(System.getProperty("user.dir"), "lib/$binaryName"),
+            File(System.getProperty("java.io.tmpdir"), "Riwaq Arch/lib/bin/$binaryName"),
+            // Development environment
+            File("${System.getProperty("user.dir")}/../../vscode-extension/bin", binaryName)
+        )
 
-        return if (bundledServer.exists() && bundledServer.canExecute()) {
-            LOG.info("Found bundled server at: ${bundledServer.absolutePath}")
-            bundledServer.absolutePath
-        } else {
-            null
+        for (path in possiblePaths) {
+            if (path.exists() && path.canExecute()) {
+                LOG.info("Found bundled server at: ${path.absolutePath}")
+                return path.absolutePath
+            } else if (path.exists() && !path.canExecute()) {
+                // Try to make it executable
+                path.setExecutable(true, false)
+                if (path.canExecute()) {
+                    LOG.info("Found and made executable bundled server at: ${path.absolutePath}")
+                    return path.absolutePath
+                }
+            }
+            LOG.debug("Bundled server not found at: ${path.absolutePath}")
         }
+
+        LOG.warn("Bundled Riwaq binary not found. Tried: ${possiblePaths.map { it.absolutePath }}")
+        return null
     }
 
     override fun dispose() {

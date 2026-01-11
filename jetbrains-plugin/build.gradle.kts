@@ -43,6 +43,49 @@ tasks {
         kotlinOptions.jvmTarget = "17"
     }
 
+    // Copy the Riwaq binary from the VSCode extension to the plugin resources
+    register<Copy>("copyRiwaqBinary") {
+        dependsOn("prepareSandbox")
+        val os = System.getProperty("os.name").lowercase()
+        val arch = System.getProperty("os.arch").lowercase()
+
+        // Determine binary name based on OS
+        val binaryName = when {
+            os.contains("windows") -> "riwaq.exe"
+            else -> "riwaq"
+        }
+
+        // Source: VSCode extension bin directory
+        val sourceBinary = file("${project.projectDir.parentFile.absolutePath}/vscode-extension/bin/$binaryName")
+        // Destination: Plugin lib directory in sandbox
+        val destinationDir = file("${buildDir.get()}/idea-sandbox/plugins/Riwaq Arch/lib/bin")
+
+        if (sourceBinary.exists()) {
+            from(sourceBinary)
+            into(destinationDir)
+            doLast {
+                // Make binary executable on Unix-like systems
+                if (!os.contains("windows")) {
+                    val binaryFile = file("$destinationDir/$binaryName")
+                    binaryFile.setExecutable(true, false)
+                }
+            }
+        } else {
+            println("Warning: Riwaq binary not found at $sourceBinary")
+            println("Please build the Riwaq core first: cd core && cargo build --release")
+        }
+    }
+
+    // Ensure binary is copied during plugin preparation
+    named("prepareSandbox") {
+        finalizedBy("copyRiwaqBinary")
+    }
+
+    // Also copy when building the plugin distribution
+    named("buildPlugin") {
+        dependsOn("copyRiwaqBinary")
+    }
+
     patchPluginXml {
         sinceBuild.set("232")
         untilBuild.set("241.*")

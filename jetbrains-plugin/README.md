@@ -16,10 +16,21 @@ AI-powered codebase documentation and architecture analysis tool for JetBrains I
 ### From Source
 
 1. Clone this repository
-2. Open the project in IntelliJ IDEA
-3. Run `./gradlew buildPlugin`
-4. The plugin will be built in `build/distributions/`
-5. Install the plugin from: `IntelliJ IDEA → Settings → Plugins → Gear Icon → Install Plugin from Disk`
+2. Build the Riwaq core binary:
+   ```bash
+   cd core
+   cargo build --release
+   # The binary will be at ../vscode-extension/bin/riwaq (or riwaq.exe on Windows)
+   ```
+3. Build the plugin:
+   ```bash
+   cd jetbrains-plugin
+   ./gradlew buildPlugin
+   ```
+4. The plugin will be built in `build/distributions/` with the bundled Riwaq binary
+5. Install from: **IntelliJ IDEA → Settings → Plugins → Gear Icon → Install Plugin from Disk**
+
+**Note**: The build process automatically bundles the Riwaq server binary from `../vscode-extension/bin/riwaq` into the plugin. Make sure to build the core first (step 2) before building the plugin.
 
 ### From Marketplace (Coming Soon)
 
@@ -29,15 +40,20 @@ Search for "Riwaq Arch" in the JetBrains Marketplace.
 
 ### Server Setup
 
-The plugin requires the Riwaq server to be running. You can configure it in:
+The plugin includes a **bundled Riwaq server binary** and will automatically start it when needed. The server management options are available in:
 
 **Settings → Tools → Riwaq Arch**
 
 Options:
 - **Server URL**: The URL where the Riwaq server is running (default: `http://127.0.0.1:9527`)
-- **Server Binary Path**: Optional path to the `riwaq` binary. Leave empty to use bundled binary or system PATH.
-- **Auto-start Server**: Automatically start the server when the IDE opens
+- **Server Binary Path**: Optional path to a custom `riwaq` binary. Leave empty to use the bundled binary.
+- **Auto-start Server**: Automatically start the bundled server when the IDE opens
 - **LLM Configuration**: Configure your LLM API key, endpoint, and model
+
+The plugin searches for the server binary in this order:
+1. Custom path (if specified in settings)
+2. Bundled binary in plugin's `lib/bin/` directory
+3. System PATH (as `riwaq` command)
 
 ### Project Settings
 
