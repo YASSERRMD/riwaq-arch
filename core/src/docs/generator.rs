@@ -152,9 +152,14 @@ impl DocGenerator {
         let index_file = self.generate_index(snapshot, &project_name)?;
         files.push(index_file);
 
-        // 2. Generate architecture overview
+        // 2. Generate architecture overview (Markdown)
         let arch_file = self.generate_architecture_overview(snapshot, &project_name).await?;
         files.push(arch_file);
+
+        // 2b. Generate architecture overview (PRO HTML)
+        if let Ok(html_file) = self.generate_architecture_html(snapshot, &project_name).await {
+            files.push(html_file);
+        }
 
         // 3. Generate module documentation
         let modules_file = self.generate_modules_doc(snapshot)?;
@@ -434,7 +439,10 @@ impl DocGenerator {
         // Dependency graph
         if self.config.include_diagrams && !snapshot.dependency_graph.edges.is_empty() {
             md.h2("Dependency Graph");
-            md.raw(&mermaid::generate_dependency_diagram(&snapshot.dependency_graph));
+            let mermaid_code = mermaid::generate_dependency_diagram(&snapshot.dependency_graph);
+            if let Some(svg_path) = self.render_diagram_to_svg(&mermaid_code, "full_dependency_diagram") {
+                md.paragraph(&format!("![Dependency Graph]({})", svg_path));
+            }
         }
 
         // Circular dependencies
@@ -631,6 +639,226 @@ impl DocGenerator {
             size,
             doc_type,
         })
+    }
+
+    /// Generate HTML architecture overview with premium design.
+    async fn generate_architecture_html(
+        &self,
+        snapshot: &CodebaseSnapshot,
+        project_name: &str,
+    ) -> Result<GeneratedFile> {
+        let stats = &snapshot.statistics;
+        
+        // Generate Diagram SVG string
+        let mermaid_code = mermaid::generate_architecture_diagram(snapshot);
+        let diagram_svg = self.render_diagram_string(&mermaid_code).unwrap_or_else(|_| "<!-- Diagram failed to render -->".to_string());
+        
+        // Premium HTML Template
+        let html = format!(r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture Overview - {project_name}</title>
+    <style>
+        :root {{
+            --bg-color: #0f172a;
+            --text-color: #e2e8f0;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(148, 163, 184, 0.1);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.2);
+            --secondary: #94a3b8;
+        }}
+        body {{
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--bg-color) 40%);
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }}
+        header {{
+            text-align: center;
+            margin-bottom: 60px;
+            padding-top: 20px;
+        }}
+        h1 {{
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }}
+        .subtitle {{
+            color: var(--secondary);
+            font-size: 1.2rem;
+        }}
+        .card {{
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }}
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        .stat-item {{
+            text-align: center;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }}
+        .stat-item:hover {{
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--accent);
+            box-shadow: 0 10px 20px -5px var(--accent-glow);
+        }}
+        .stat-value {{
+            display: block;
+            font-size: 3rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 5px;
+            line-height: 1;
+        }}
+        .stat-label {{
+            color: var(--secondary);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }}
+        h2 {{
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .diagram-container {{
+            background: #111;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+            border: 1px solid var(--card-border);
+            display: flex;
+            justify-content: center;
+            min-height: 400px;
+        }}
+        .diagram-container svg {{
+            max-width: 100%;
+            height: auto;
+        }}
+        .footer {{
+            text-align: center;
+            color: var(--secondary);
+            margin-top: 60px;
+            font-size: 0.9rem;
+            padding-bottom: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{project_name}</h1>
+            <div class="subtitle">Architecture Overview</div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-value">{modules}</span>
+                <span class="stat-label">Modules</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{files}</span>
+                <span class="stat-label">Files</span>
+            </div>
+             <div class="stat-item">
+                <span class="stat-value">{services}</span>
+                <span class="stat-label">Services</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{lines}</span>
+                <span class="stat-label">Total Lines</span>
+            </div>
+        </div>
+
+        <section class="card">
+            <h2>🏗️ System Architecture</h2>
+            <div class="diagram-container">
+                {diagram_svg}
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>📦 Modules</h2>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--secondary);">Name</th>
+                            <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--secondary);">Path</th>
+                            <th style="padding: 12px; border-bottom: 1px solid var(--card-border); color: var(--secondary);">Files</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {module_rows}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="footer">
+            Generated by Riwaq Arch • {date}
+        </div>
+    </div>
+</body>
+</html>"#,
+            project_name = project_name,
+            modules = stats.total_modules,
+            files = stats.total_files,
+            services = snapshot.services.len(),
+            lines = stats.total_lines,
+            diagram_svg = diagram_svg,
+            module_rows = snapshot.modules.iter().take(20).map(|m| format!(
+                "<tr><td style='padding: 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); font-weight: 500;'>{}</td><td style='padding: 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); font-family: monospace; color: #94a3b8;'>{}</td><td style='padding: 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1);'>{}</td></tr>",
+                m.name, m.path, m.files.len()
+            )).collect::<Vec<_>>().join(""),
+            date = chrono::Local::now().format("%Y-%m-%d %H:%M")
+        );
+
+        self.write_file("architecture_overview.html", &html, DocType::ArchitectureOverview)
+    }
+
+    /// Helper to render directly to SVG string
+    fn render_diagram_string(&self, mermaid_code: &str) -> std::result::Result<String, String> {
+        // Use a temp config for rendering
+        let config = DiagramRendererConfig {
+            output_dir: self.config.output_dir.clone(),
+        };
+        let renderer = DiagramRenderer::new(config)?;
+        renderer.render_to_svg(mermaid_code)
     }
 
     /// Render Mermaid diagram to SVG and save to diagrams directory.
