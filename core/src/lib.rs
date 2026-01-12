@@ -8,6 +8,10 @@
 //! - Git history insights
 //! - LLM-powered documentation generation
 //! - Semantic search capabilities
+//! - API detection (REST, gRPC, GraphQL, Webhooks)
+//! - Business logic extraction
+//! - Performance caching
+//! - Security validation
 //!
 //! ## Quick Start
 //!
@@ -29,14 +33,21 @@ pub mod llm;
 pub mod logging;
 pub mod models;
 pub mod server;
+pub mod cache;
+pub mod security;
+pub mod metrics;
 
 // Re-export commonly used types
 pub use analysis::analyzer::CodebaseAnalyzer;
+pub use analysis::{ApiAnalyzer, BusinessLogicAnalyzer};
 pub use docs::{DocGenerator, DocGeneratorConfig, GeneratedDocs};
 pub use errors::{RiwaqError, Result};
-pub use llm::{HttpLlmClient, LLMClient, LLMConfig, LLMResponse};
+pub use llm::{HttpLlmClient, LLMClient, LLMConfig, LLMResponse, ContextBuilder};
 pub use models::snapshot::CodebaseSnapshot;
 pub use server::{create_router, AppState};
+pub use cache::CacheManager;
+pub use security::{PathValidator, SecretDetector, RateLimiter};
+pub use metrics::{MetricsCollector, HealthChecker, HealthStatus};
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
