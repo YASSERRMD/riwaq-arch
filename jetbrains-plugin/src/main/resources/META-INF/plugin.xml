@@ -71,7 +71,7 @@
             <action id="Riwaq.OpenAskPanel"
                     class="com.riwaq.arch.actions.OpenAskPanelAction"
                     text="Ask About Codebase"
-                    description="Open AI Q&A panel"/>
+                    description="Open AI Q&amp;A panel"/>
             <action id="Riwaq.OpenArchitecturePanel"
                     class="com.riwaq.arch.actions.OpenArchitecturePanelAction"
                     text="View Architecture Diagram"

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export JAVA_HOME=/opt/homebrew/opt/openjdk@17:*)",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\":*)",
+      "Bash(java:*)"
+    ]
+  }
+}

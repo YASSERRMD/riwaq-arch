@@ -58,7 +58,7 @@ tasks {
         // Source: VSCode extension bin directory
         val sourceBinary = file("${project.projectDir.parentFile.absolutePath}/vscode-extension/bin/$binaryName")
         // Destination: Plugin lib directory in sandbox
-        val destinationDir = file("${buildDir.get()}/idea-sandbox/plugins/Riwaq Arch/lib/bin")
+        val destinationDir = layout.buildDirectory.dir("idea-sandbox/plugins/Riwaq Arch/lib/bin").get().asFile
 
         if (sourceBinary.exists()) {
             from(sourceBinary)
