@@ -198,6 +198,7 @@ The Riwaq VS Code extension provides an integrated experience directly in your e
 - **Quick Insights**: Code health, language breakdown, and statistics
 - **Ask Panel**: Interactive Q&A about your codebase
 - **Architecture Diagrams**: Mermaid diagram visualization
+- **Documentation Generation**: One-click creation of BRD, SRS, and API docs
 
 #### Installation
 
@@ -226,6 +227,7 @@ The Riwaq JetBrains plugin brings the same powerful features to IntelliJ IDEA, P
 - **Architecture Diagrams**: Mermaid-based visualization with zoom controls
 - **Code Health Metrics**: Real-time statistics on coupling, cohesion, and module quality
 - **Status Bar Widget**: Visual indicator showing server status
+- **Documentation Generation**: Generate BRD, SRS, and API docs directly from the IDE
 - **Context Menu Integration**: Ask about selected code directly from the editor
 
 #### Supported IDEs
@@ -296,6 +298,7 @@ The Riwaq Visual Studio extension brings powerful codebase analysis to Visual St
 - **Interactive Chat UI**: AI-powered Q&A about your codebase
 - **Architecture Diagrams**: Mermaid-based visualization
 - **Code Health Metrics**: Real-time statistics on coupling, cohesion, and module quality
+- **Documentation Generation**: Generate BRD, SRS, and API docs
 - **Integrated Commands**: Menu commands for server control and project analysis
 
 #### Installation
