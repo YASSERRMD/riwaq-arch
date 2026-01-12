@@ -21,12 +21,11 @@ export class AskPanel {
 
         const panel = vscode.window.createWebviewPanel(
             'riwaqAsk',
-            'Riwaq: Ask About Code',
+            'Ask About Code',
             column || vscode.ViewColumn.One,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [extensionUri]
             }
         );
 
@@ -64,7 +63,8 @@ export class AskPanel {
                 command: 'answer',
                 answer: result.answer,
                 fileRefs: result.fileRefs,
-                confidence: result.confidence
+                confidence: result.confidence,
+                diagrams: result.diagrams || []
             });
         } catch (error: any) {
             this._panel.webview.postMessage({
@@ -86,6 +86,7 @@ export class AskPanel {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ask About Code</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
@@ -133,50 +134,75 @@ export class AskPanel {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
         }
         button:hover {
             background: var(--vscode-button-hoverBackground);
         }
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
         }
         .answer-container {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
-            background: var(--vscode-editor-inactiveSelectionBackground);
-            border-radius: 8px;
+            padding: 15px;
+            background: var(--vscode-editor-background);
             border: 1px solid var(--vscode-panel-border);
+            border-radius: 8px;
         }
         .answer-content {
             line-height: 1.6;
         }
-        /* Markdown styles */
+        .answer-content h1, .answer-content h2, .answer-content h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .answer-content p {
+            margin-bottom: 10px;
+        }
         .answer-content pre {
-            background: #1e1e1e;
-            padding: 10px;
-            border-radius: 4px;
+            background: var(--vscode-textCodeBlock-background);
+            padding: 15px;
+            border-radius: 6px;
             overflow-x: auto;
             margin: 10px 0;
         }
         .answer-content code {
-            font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
+            font-family: var(--vscode-editor-font-family);
             font-size: 13px;
-        }
-        .answer-content p {
-            margin-bottom: 10px;
         }
         .answer-content ul, .answer-content ol {
             margin-left: 20px;
             margin-bottom: 10px;
         }
-        .answer-content h1, .answer-content h2, .answer-content h3 {
-            margin-top: 20px;
-            margin-bottom: 10px;
-            font-weight: 600;
+        
+        /* Mermaid diagram styling - rendered as visual images */
+        .mermaid {
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+            border: 1px solid #3d3d5c;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
+        .diagram-container {
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+            border: 1px solid #3d3d5c;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .diagram-container svg {
+            max-width: 100%;
+            height: auto;
         }
         
         .loading {
@@ -248,13 +274,43 @@ export class AskPanel {
         </p>
         <ul style="margin-top: 10px; margin-left: 20px; color: var(--vscode-descriptionForeground);">
             <li>What is the main architecture pattern used?</li>
-            <li>How do modules communicate with each other?</li>
-            <li>Where is the database connection managed?</li>
-            <li>What are the main entry points?</li>
+            <li>How does the authentication flow work?</li>
+            <li>What are the key dependencies?</li>
+            <li>Show me the data flow diagram</li>
         </ul>
     </div>
 
     <script>
+        // Initialize Mermaid with dark theme for beautiful diagrams
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#7c3aed',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#5b21b6',
+                lineColor: '#6366f1',
+                secondaryColor: '#4f46e5',
+                tertiaryColor: '#1e1e2e',
+                background: '#1e1e2e',
+                mainBkg: '#2d2d44',
+                nodeBorder: '#5b21b6',
+                clusterBkg: '#2d2d44',
+                titleColor: '#fff',
+                edgeLabelBackground: '#2d2d44'
+            },
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            },
+            sequence: {
+                actorMargin: 50,
+                width: 150
+
+            }
+        });
+
         const vscode = acquireVsCodeApi();
         const questionInput = document.getElementById('question');
         const askBtn = document.getElementById('askBtn');
@@ -276,7 +332,40 @@ export class AskPanel {
             });
         }
 
-        window.addEventListener('message', event => {
+        // Custom marked renderer to handle mermaid code blocks
+        const renderer = new marked.Renderer();
+        const originalCodeRenderer = renderer.code.bind(renderer);
+        
+        renderer.code = function(code, language) {
+            if (language === 'mermaid') {
+                // Return a div that will be rendered by Mermaid as a visual diagram
+                const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+                return '<div class="mermaid" id="' + id + '">' + code + '</div>';
+            }
+            return originalCodeRenderer(code, language);
+        };
+
+        marked.setOptions({ renderer: renderer });
+
+        // Render all Mermaid diagrams as visual images
+        async function renderMermaidDiagrams() {
+            const mermaidDivs = document.querySelectorAll('.mermaid');
+            for (const div of mermaidDivs) {
+                try {
+                    const id = div.id || 'mermaid-' + Math.random().toString(36).substr(2, 9);
+                    const code = div.textContent.trim();
+                    if (code) {
+                        const { svg } = await mermaid.render(id + '-svg', code);
+                        div.innerHTML = svg;
+                    }
+                } catch (error) {
+                    console.error('Mermaid render error:', error);
+                    div.innerHTML = '<p style="color: #f87171; padding: 10px;">⚠️ Failed to render diagram</p>';
+                }
+            }
+        }
+
+        window.addEventListener('message', async event => {
             const message = event.data;
 
             switch (message.command) {
@@ -288,10 +377,17 @@ export class AskPanel {
                     break;
 
                 case 'answer':
-                    // Convert Markdown to HTML
+                    // Convert Markdown to HTML - mermaid blocks become <div class="mermaid">
                     const rawHtml = marked.parse(message.answer);
                     
                     let html = '<div class="answer-content">' + rawHtml + '</div>';
+                    
+                    // Add pre-rendered SVG diagrams from backend
+                    if (message.diagrams && message.diagrams.length > 0) {
+                        for (const diagram of message.diagrams) {
+                            html += '<div class="diagram-container">' + diagram.svg + '</div>';
+                        }
+                    }
                     
                     if (message.fileRefs && message.fileRefs.length > 0) {
                         html += '<div class="file-refs"><h3>📁 Referenced Files</h3>';
@@ -304,6 +400,9 @@ export class AskPanel {
                     html += '<div class="confidence">Confidence: ' + Math.round(message.confidence * 100) + '%</div>';
                     
                     answerContainer.innerHTML = html;
+                    
+                    // Render Mermaid code blocks as visual diagram images
+                    await renderMermaidDiagrams();
                     
                     // Apply syntax highlighting
                     document.querySelectorAll('pre code').forEach((block) => {

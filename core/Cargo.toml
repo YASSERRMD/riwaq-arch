@@ -72,6 +72,7 @@ axum = "0.7"
 tower-http = { version = "0.5", features = ["cors"] }
 regex = "1.12.2"
 mermaid-rs = "0.1.1"
+resvg = { version = "0.46.0", features = ["text"] }
 
 # Semantic search (TODO: add in Phase 2)
 # tantivy = "0.22"  # Will be added when semantic search is implemented

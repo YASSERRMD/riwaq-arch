@@ -106,6 +106,12 @@ export interface AnswerResult {
     answer: string;
     fileRefs: FileReference[];
     confidence: number;
+    diagrams?: DiagramData[];
+}
+
+export interface DiagramData {
+    name: string;
+    svg: string;
 }
 
 export interface FileReference {
