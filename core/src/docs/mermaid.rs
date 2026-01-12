@@ -51,67 +51,125 @@ pub fn generate_dependency_diagram(graph: &DependencyGraph) -> String {
     mermaid
 }
 
-/// Generate a high-level architecture diagram with enhanced styling.
+/// Generate a high-level architecture diagram using Layered Architecture pattern.
 pub fn generate_architecture_diagram(snapshot: &CodebaseSnapshot) -> String {
-    let mut mermaid = String::from("```mermaid\ngraph TB\n");
+    let mut mermaid = String::from("```mermaid\ngraph TD\n");
 
     // Enhanced styling
-    mermaid.push_str("    classDef service fill:#7c3aed,stroke:#5b21b6,color:#fff,stroke-width:2px\n");
-    mermaid.push_str("    classDef module fill:#4f46e5,stroke:#3730a3,color:#fff\n");
-    mermaid.push_str("    classDef external fill:#6366f1,stroke:#4f46e5,color:#fff,stroke-dasharray: 5 5\n\n");
+    mermaid.push_str("    classDef layerC fill:#1e293b,stroke:#475569,color:#cbd5e1,stroke-width:2px,stroke-dasharray: 5 5\n");
+    mermaid.push_str("    classDef presentation fill:#0891b2,stroke:#0e7490,color:#fff,rx:5,ry:5\n");
+    mermaid.push_str("    classDef interface fill:#7c3aed,stroke:#6d28d9,color:#fff,rx:5,ry:5\n");
+    mermaid.push_str("    classDef business fill:#059669,stroke:#047857,color:#fff,rx:5,ry:5\n");
+    mermaid.push_str("    classDef data fill:#b91c1c,stroke:#991b1b,color:#fff,rx:5,ry:5\n");
+    mermaid.push_str("    classDef common fill:#475569,stroke:#334155,color:#fff,rx:5,ry:5\n");
+    mermaid.push_str("    classDef service fill:#db2777,stroke:#be185d,color:#fff,shape:hexagon\n\n");
 
-    // Group modules by top-level namespace
-    let mut namespaces: std::collections::HashMap<String, Vec<&str>> = std::collections::HashMap::new();
+    // 1. Identify Layers & Group Directories
+    let mut layer_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut dir_deps: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
+    
+    // Helper to classify directories into layers
+    fn classify_layer(name: &str) -> &'static str {
+        match name.to_lowercase().as_str() {
+            "ui" | "frontend" | "web" | "pages" | "view" | "views" | "components" | "app" | "client" | "cli" => "Presentation",
+            "api" | "server" | "controllers" | "routes" | "handlers" | "graphql" | "grpc" | "interfaces" | "gateway" => "Interface",
+            "core" | "domain" | "business" | "services" | "logic" | "usecases" | "workflows" | "jobs" | "workers" | "orchestrator" => "Business",
+            "data" | "models" | "db" | "database" | "repositories" | "store" | "sql" | "entities" | "migrations" => "Data",
+            "utils" | "common" | "lib" | "shared" | "helpers" | "config" | "constants" | "types" | "infrastructure" | "infra" => "Common",
+            _ => "Business", // Default to Business for unrecognized top-level folders
+        }
+    }
+
+    // Collect Directories and organize into layers
+    let mut dir_to_layer: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
     for module in &snapshot.modules {
-        let namespace = module.path.split(&[':', '.', '/'][..])
-            .next()
-            .unwrap_or(&module.name);
+        let path_parts: Vec<&str> = module.path.split(&['/', '\\'][..]).collect();
+        let top_dir = if !path_parts.is_empty() { path_parts[0] } else { "root" };
         
-        namespaces
-            .entry(namespace.to_string())
-            .or_default()
-            .push(&module.name);
-    }
+        let layer = classify_layer(top_dir);
+        let dir_key = top_dir.to_string();
 
-    // Add service entry points first
-    if !snapshot.services.is_empty() {
-        mermaid.push_str("    subgraph SERVICES[\"🚀 Services\"]\n");
-        mermaid.push_str("        direction TB\n");
-        for service in &snapshot.services {
-            let icon = match service.kind {
-                crate::models::snapshot::ServiceKind::HttpServer => "🌐",
-                crate::models::snapshot::ServiceKind::GrpcServer => "⚡",
-                crate::models::snapshot::ServiceKind::Cli => "💻",
-                _ => "📦",
-            };
-            mermaid.push_str(&format!("        {}[\"{} {}\"]\n", 
-                sanitize_id(&service.name), icon, service.name));
+        dir_to_layer.insert(dir_key.clone(), layer.to_string());
+        
+        // Add unique directories to the layer map
+        let entry = layer_map.entry(layer.to_string()).or_default();
+        if !entry.contains(&dir_key) {
+            entry.push(dir_key.clone());
         }
-        mermaid.push_str("    end\n\n");
+
+        // Collect cross-directory dependencies
+        // (Similar to previous logic but simpler)
+        for dep in &module.dependencies {
+             if let Some(target_module) = snapshot.modules.iter().find(|m| m.name == dep.target) {
+                 let target_parts: Vec<&str> = target_module.path.split(&['/', '\\'][..]).collect();
+                 let target_dir = if !target_parts.is_empty() { target_parts[0] } else { "root" };
+                 
+                 if top_dir != target_dir {
+                     dir_deps.insert((top_dir.to_string(), target_dir.to_string()));
+                 }
+             }
+        }
     }
 
-    // Create subgraphs for each namespace
-    for (namespace, modules) in &namespaces {
-        if modules.len() > 1 {
-            mermaid.push_str(&format!("    subgraph {}[\"📦 {}\"]\n", sanitize_id(namespace), namespace));
-            mermaid.push_str("        direction TB\n");
-            for module in modules.iter().take(10) {
-                mermaid.push_str(&format!("        {}[\"{}\"]\n", sanitize_id(module), module));
-            }
-            if modules.len() > 10 {
-                mermaid.push_str(&format!("        {}more[\"... +{} more\"]\n", sanitize_id(namespace), modules.len() - 10));
+    // 2. Render Layers in Order (Top Down)
+    let ordered_layers = vec!["Presentation", "Interface", "Business", "Data", "Common"];
+    
+    for layer in ordered_layers {
+        if let Some(dirs) = layer_map.get(layer) {
+            mermaid.push_str(&format!("    subgraph {}_Layer[\" \"]\n", layer));
+            mermaid.push_str("        direction LR\n"); // Items inside a layer flow Left-Right
+            
+            for dir in dirs {
+                let id = sanitize_id(dir);
+                let label = match layer {
+                    "Presentation" => format!("🖥️ {}", dir),
+                    "Interface" => format!("🔌 {}", dir),
+                    "Business" => format!("⚙️ {}", dir),
+                    "Data" => format!("💾 {}", dir),
+                    "Common" => format!("📚 {}", dir),
+                    _ => dir.clone(),
+                };
+                
+                // Styling based on layer
+                let style_class = layer.to_lowercase();
+                mermaid.push_str(&format!("        {}[\"{}\"]\n", id, label));
+                mermaid.push_str(&format!("        class {} {}\n", id, style_class));
             }
             mermaid.push_str("    end\n");
-        } else if !modules.is_empty() {
-            mermaid.push_str(&format!("    {}[\"{}\"]\n", sanitize_id(modules[0]), modules[0]));
+            // Style the container
+            mermaid.push_str(&format!("    class {}_Layer layerC\n\n", layer));
         }
     }
 
-    // Apply styles
-    mermaid.push('\n');
-    for service in &snapshot.services {
-        mermaid.push_str(&format!("    class {} service\n", sanitize_id(&service.name)));
+    // 3. Render Services Entry Points (Separate from layers or attached)
+    if !snapshot.services.is_empty() {
+        for service in &snapshot.services {
+             // Heuristic: Connect service to the dir containing its entry file
+             let entry = service.entry_file.to_string_lossy();
+             let parts: Vec<&str> = entry.split(&['/', '\\'][..]).collect();
+             if !parts.is_empty() {
+                 let dir = parts[0];
+                 let service_id = sanitize_id(&service.name);
+                 mermaid.push_str(&format!("    {}[\"🚀 {}\"]\n", service_id, service.name));
+                 mermaid.push_str(&format!("    class {} service\n", service_id));
+                 mermaid.push_str(&format!("    {} --> {}\n", service_id, sanitize_id(dir)));
+             }
+        }
+    }
+
+    // 4. Render Aggregated Edges (Layer to Layer mostly)
+    for (src, dst) in dir_deps {
+        let src_id = sanitize_id(&src);
+        let dst_id = sanitize_id(&dst);
+        
+        let src_layer = dir_to_layer.get(&src).map(|s| s.as_str()).unwrap_or("Other");
+        let dst_layer = dir_to_layer.get(&dst).map(|s| s.as_str()).unwrap_or("Other");
+
+        // Filter: Don't show Common -> * dependencies (too noisy), only * -> Common
+        if src_layer == "Common" { continue; }
+
+        mermaid.push_str(&format!("    {} --> {}\n", src_id, dst_id));
     }
 
     mermaid.push_str("```\n");
