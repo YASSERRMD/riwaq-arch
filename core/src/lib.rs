@@ -36,6 +36,7 @@ pub mod server;
 pub mod cache;
 pub mod security;
 pub mod metrics;
+pub mod diagrams;
 
 // Re-export commonly used types
 pub use analysis::analyzer::CodebaseAnalyzer;
@@ -48,6 +49,7 @@ pub use server::{create_router, AppState};
 pub use cache::CacheManager;
 pub use security::{PathValidator, SecretDetector, RateLimiter};
 pub use metrics::{MetricsCollector, HealthChecker, HealthStatus};
+pub use diagrams::{DiagramRenderer, DiagramFormat, RenderedDiagram};
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

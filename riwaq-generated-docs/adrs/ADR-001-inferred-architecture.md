@@ -7,7 +7,7 @@ Proposed (Auto-generated)
 
 ## Context
 
-This ADR documents the architecture inferred from static analysis of the codebase. The project consists of 35 modules with 35 total files.
+This ADR documents the architecture inferred from static analysis of the codebase. The project consists of 84 modules with 84 total files.
 
 ## Decision
 
@@ -15,11 +15,11 @@ The codebase follows a **Modular monolith architecture** pattern.
 
 ### Key Modules
 
-- client
-- analyzer
-- markdown
-- vscode-extension/client
-- mod
+- jetbrains-plugin/main/kotlin/com/riwaq/arch/toolwindow/ArchitectureToolWindowFactory
+- visual-studio-extension/ServerManager
+- jetbrains-plugin/main/kotlin/com/riwaq/arch/actions/AskAboutSelectionAction
+- file
+- vscode-extension/views/architectureTree
 
 ## Consequences
 
