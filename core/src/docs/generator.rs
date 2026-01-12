@@ -122,17 +122,40 @@ pub enum DocType {
     DependencyReport,
     Adr,
     Index,
+    BusinessRequirements,
+    SoftwareRequirements,
 }
 
 /// Main documentation generator.
 pub struct DocGenerator {
     config: DocGeneratorConfig,
+    llm_client: Box<dyn crate::llm::LLMClient>,
 }
 
 impl DocGenerator {
     /// Create a new documentation generator.
+    /// Create a new documentation generator.
     pub fn new(config: DocGeneratorConfig) -> Self {
-        Self { config }
+        let llm_client: Box<dyn crate::llm::LLMClient> = if config.use_llm {
+            if let Some(llm_config) = config.llm_config.clone() {
+                match crate::llm::HttpLlmClient::new(llm_config) {
+                    Ok(client) => Box::new(client),
+                    Err(e) => {
+                        warn!("Failed to create LLM client: {}", e);
+                        Box::new(crate::llm::client::MockLlmClient::new())
+                    }
+                }
+            } else {
+                 match crate::llm::HttpLlmClient::with_defaults() {
+                    Ok(client) => Box::new(client),
+                    Err(_) => Box::new(crate::llm::client::MockLlmClient::new()),
+                 }
+            }
+        } else {
+            Box::new(crate::llm::client::MockLlmClient::new())
+        };
+        
+        Self { config, llm_client }
     }
 
     /// Generate all documentation from a snapshot.
@@ -171,7 +194,7 @@ impl DocGenerator {
 
         // 5. Generate API reference (if services found)
         if self.config.generate_api_ref && !snapshot.services.is_empty() {
-            let api_file = self.generate_api_reference(snapshot)?;
+            let api_file = self.generate_api_reference(snapshot).await?;
             files.push(api_file);
         }
 
@@ -182,6 +205,16 @@ impl DocGenerator {
             
             let adr_files = self.generate_adrs(snapshot, &adr_dir).await?;
             files.extend(adr_files);
+        }
+
+        // 7. Generate Reverse Engineering Docs (BRD & SRS)
+        if self.config.use_llm {
+            if let Ok(brd) = self.generate_brd(snapshot, &project_name).await {
+                files.push(brd);
+            }
+            if let Ok(srs) = self.generate_srs(snapshot, &project_name).await {
+                files.push(srs);
+            }
         }
 
         let generation_time_ms = start.elapsed().as_millis() as u64;
@@ -210,6 +243,8 @@ impl DocGenerator {
         md.h2("Quick Links");
         md.bullet_list(&[
             "[Architecture Overview](./ARCHITECTURE_OVERVIEW.md)",
+            "[Business Requirements (BRD)](./BUSINESS_REQUIREMENTS.md)",
+            "[Software Requirements (SRS)](./SOFTWARE_REQUIREMENTS.md)",
             "[Modules & Services](./MODULES.md)",
             "[Dependencies & Risks](./DEPENDENCIES.md)",
             "[API Reference](./API_REFERENCE.md)",
@@ -497,30 +532,112 @@ impl DocGenerator {
     }
 
     /// Generate API reference.
-    fn generate_api_reference(&self, snapshot: &CodebaseSnapshot) -> Result<GeneratedFile> {
-        let mut md = MarkdownBuilder::new();
-
-        md.h1("API Reference");
-        md.paragraph("Documentation for HTTP, gRPC, and other service endpoints.");
-
-        for service in &snapshot.services {
-            md.h2(&format!("{} ({:?})", service.name, service.kind));
-            md.paragraph(&format!("**Entry File**: `{}`", service.entry_file.display()));
-
-            if !service.endpoints.is_empty() {
-                md.h3("Endpoints");
-                let endpoints: Vec<&str> = service.endpoints.iter()
-                    .map(|e| e.as_str())
-                    .collect();
-                md.bullet_list(&endpoints);
+    /// Generate BRD using LLM.
+    async fn generate_brd(&self, snapshot: &CodebaseSnapshot, project_name: &str) -> Result<GeneratedFile> {
+        let content = if self.config.use_llm {
+            let context = crate::llm::prompts::truncate_context(&self.generate_context_summary(snapshot), 12000);
+            let prompt = crate::llm::prompts::generate_brd_prompt(project_name, &context);
+            if let Ok(res) = self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
+                res.content
             } else {
-                md.paragraph("*Endpoints will be documented when route analysis is implemented.*");
+                 "# Business Requirements\n\n(LLM generation failed)".to_string()
             }
+        } else {
+            "# Business Requirements\n\n(LLM disabled)".to_string()
+        };
+        self.write_file("BUSINESS_REQUIREMENTS.md", &content, DocType::BusinessRequirements)
+    }
 
-            md.hr();
+    /// Generate SRS using LLM.
+    async fn generate_srs(&self, snapshot: &CodebaseSnapshot, project_name: &str) -> Result<GeneratedFile> {
+        let content = if self.config.use_llm {
+            let context = crate::llm::prompts::truncate_context(&self.generate_context_summary(snapshot), 12000);
+            let prompt = crate::llm::prompts::generate_srs_prompt(project_name, &context);
+             if let Ok(res) = self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
+                res.content
+            } else {
+                 "# Software Requirements\n\n(LLM generation failed)".to_string()
+            }
+        } else {
+            "# Software Requirements\n\n(LLM disabled)".to_string()
+        };
+        self.write_file("SOFTWARE_REQUIREMENTS.md", &content, DocType::SoftwareRequirements)
+    }
+    
+    async fn generate_api_reference(&self, snapshot: &CodebaseSnapshot) -> Result<GeneratedFile> {
+        if self.config.use_llm {
+             let mut endpoints_desc = String::new();
+             for service in &snapshot.services {
+                 endpoints_desc.push_str(&format!("Service: {} ({:?})\n", service.name, service.kind));
+                 if !service.endpoints.is_empty() {
+                      endpoints_desc.push_str("Detected Endpoints:\n");
+                      for ep in &service.endpoints {
+                          endpoints_desc.push_str(&format!("- {}\n", ep));
+                      }
+                 }
+             }
+             
+             // Look for schema files
+             for file in &snapshot.files {
+                 if file.path.extension().map_or(false, |e| e == "graphql" || e == "gql") {
+                      endpoints_desc.push_str(&format!("GraphQL Schema found in: {}\n", file.path.display()));
+                 }
+                 if file.path.extension().map_or(false, |e| e == "proto") {
+                      endpoints_desc.push_str(&format!("gRPC Proto found in: {}\n", file.path.display()));
+                 }
+             }
+
+             let prompt = crate::llm::prompts::api_documentation_prompt(&endpoints_desc);
+             let content = match self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
+                Ok(c) => c.content,
+                Err(e) => {
+                    warn!("LLM API Doc generation failed: {}", e);
+                    "API Documentation generation failed. Please check logs.".to_string()
+                }
+             };
+             self.write_file("API_REFERENCE.md", &content, DocType::ApiReference)
+       } else {
+            let mut md = MarkdownBuilder::new();
+            md.h1("API Reference");
+            md.paragraph("Documentation for HTTP, gRPC, and other service endpoints.");
+    
+            for service in &snapshot.services {
+                md.h2(&format!("{} ({:?})", service.name, service.kind));
+                md.paragraph(&format!("**Entry File**: `{}`", service.entry_file.display()));
+    
+                if !service.endpoints.is_empty() {
+                    md.h3("Endpoints");
+                    let endpoints: Vec<&str> = service.endpoints.iter()
+                        .map(|e| e.as_str())
+                        .collect();
+                    md.bullet_list(&endpoints);
+                } else {
+                    md.paragraph("*Endpoints will be documented when route analysis is implemented.*");
+                }
+    
+                md.hr();
+            }
+    
+            self.write_file("API_REFERENCE.md", &md.build(), DocType::ApiReference)
+       }
+    }
+
+    fn generate_context_summary(&self, snapshot: &CodebaseSnapshot) -> String {
+        let mut summary = String::new();
+        summary.push_str(&format!("Project: {}\n", snapshot.metadata.project_name));
+        summary.push_str(&format!("Files: {}\n", snapshot.statistics.total_files));
+        summary.push_str(&format!("Modules: {}\n", snapshot.statistics.total_modules));
+        
+        summary.push_str("\n## Modules\n");
+        for module in &snapshot.modules {
+            summary.push_str(&format!("- **{}** (`{}`): {} files\n", module.name, module.path, module.files.len()));
         }
-
-        self.write_file("API_REFERENCE.md", &md.build(), DocType::ApiReference)
+        
+        summary.push_str("\n## Services\n");
+        for service in &snapshot.services {
+             summary.push_str(&format!("- **{}** ({:?}): Entry: {}\n", service.name, service.kind, service.entry_file.display()));
+        }
+        summary
     }
 
     /// Generate ADRs.

@@ -177,45 +177,126 @@ Format your answer in clear Markdown with appropriate headers if needed."#
     )
 }
 
+/// Generate prompt for Business Requirements Document (BRD).
+pub fn generate_brd_prompt(project_name: &str, context: &str) -> String {
+    format!(
+        r#"Act as a Senior Business Analyst. Reverse-engineer a Business Requirements Document (BRD) based on this codebase.
+
+Project: {project_name}
+
+## Codebase Context
+{context}
+
+## Required Output (Markdown)
+
+# Business Requirements Document (BRD)
+
+## 1. Executive Summary
+- High-level overview of the solution.
+- Business problems it solves (inferred from features).
+
+## 2. Business Objectives
+- Key goals (e.g., "Enable real-time collaboration", "Secure data storage", "Automate workflows").
+
+## 3. User Personas (Inferred)
+- Who are the likely users? (e.g., Admin, Customer, System).
+
+## 4. Functional Requirements (Business View)
+- List high-level features mapped to business needs.
+- Format: "The system shall [do X] to enable [Business Value Y]."
+
+## 5. Non-Functional Requirements
+- Performance, Security, Scalability constraints observed or implied.
+
+## 6. Glossary
+- Key domain terms found in the code.
+
+Focus on 'WHAT' and 'WHY', not 'HOW'."#
+    )
+}
+
+/// Generate prompt for Software Requirements Specification (SRS).
+pub fn generate_srs_prompt(project_name: &str, context: &str) -> String {
+    format!(
+        r#"Act as a Lead Systems Architect. Reverse-engineer a Software Requirements Specification (SRS) based on this codebase.
+
+Project: {project_name}
+
+## Codebase Context
+{context}
+
+## Required Output (Markdown)
+
+# Software Requirements Specification (SRS)
+
+## 1. Introduction
+- Purpose of this document.
+- Scope of the software.
+
+## 2. System Overview
+- High-level architecture summary.
+- Core technologies and their justification.
+
+## 3. Detailed Functional Requirements
+- Break down features into specific technical requirements.
+- **API Capabilities**: Summary of REST/gRPC/GraphQL capabilities.
+- **Data Processing**: Key validation and processing rules.
+
+## 4. Interface Requirements
+- External System Integrations (Databases, 3rd Party APIs).
+- User Interfaces (CLI, Web).
+
+## 5. System Attributes
+- Reliability points (retries, error handling).
+- Security measures (Auth, encryption).
+- Maintainability patterns.
+
+## 6. Data Model Requirements
+- Key entities and relationships.
+
+Be technical and precise. This document is for developers/integrators."#
+    )
+}
+
 /// Generate prompt for API documentation.
 pub fn api_documentation_prompt(endpoints: &str) -> String {
     format!(
-        r#"Generate comprehensive API documentation for the following endpoints:
+        r#"Generate comprehensive API documentation intended for external integrators.
+The documentation must cover all detected interfaces including REST, gRPC, and GraphQL.
 
-## Endpoints
+## Endpoints/Services Analysis
 
 {endpoints}
 
 ## Required Output
 
-Generate a Markdown API reference document with:
+Generate a Markdown API Reference with the following structure:
 
-### For each endpoint:
+### 1. Introduction
+- Overview of available interfaces (REST/gRPC/GraphQL).
+- Base URLs and Environments.
+- Authentication mechanisms (Bearer Token, API Key, etc.).
 
-#### `[METHOD] /path`
+### 2. REST API Reference (if applicable)
+For each endpoint:
+- **`[METHOD] /path`**
+- **Description**: Clear explanation of purpose.
+- **Parameters**: Header, Path, Query, Body.
+- **Response**: Success (200) and Error codes (4xx, 5xx) with JSON examples.
+- **Example**: `curl` command.
 
-**Description**: What this endpoint does
+### 3. gRPC Service Definition (if applicable)
+For each service:
+- **Service Name**
+- **RPC Methods**: Input message type, Output message type.
+- **Protobuf Snippet**: Show the `.proto` definition.
 
-**Authentication**: Required/Optional/None
+### 4. GraphQL Schema (if applicable)
+- **Queries**: Available data fetching operations.
+- **Mutations**: Data modification operations.
+- **Types**: Key data structures.
 
-**Request**:
-- Headers
-- Path Parameters
-- Query Parameters
-- Request Body (with example)
-
-**Response**:
-- Success response (with example)
-- Error responses
-
-**Example**:
-```bash
-curl -X METHOD 'https://api.example.com/path' \
-  -H 'Authorization: Bearer token' \
-  -d '{{...}}'
-```
-
-Be thorough and include all relevant details for API consumers."#
+Be strictly technical and precise. Use professional formatting."#
     )
 }
 
