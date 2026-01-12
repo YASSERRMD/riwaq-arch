@@ -10,6 +10,7 @@
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC.svg)](vscode-extension/)
 [![JetBrains](https://img.shields.io/badge/JetBrains-Plugin-000000.svg)](jetbrains-plugin/)
+[![Visual Studio](https://img.shields.io/badge/Visual%20Studio-Extension-68217A.svg)](visual-studio-extension/)
 
 *Transform your codebase into living documentation*
 
@@ -282,28 +283,70 @@ The plugin includes a **bundled Riwaq server binary** and searches for it in:
 2. Bundled binary in plugin directory
 3. System PATH
 
-Project-level settings are available in **Settings → Project → Riwaq Arch**:
+### Visual Studio Extension
 
-- **Auto-analyze**: Automatically re-analyze on file changes
-- **Excluded Files**: File patterns to exclude
-- **Custom Prompt**: Additional instructions for AI analysis
+The Riwaq Visual Studio extension brings powerful codebase analysis to Visual Studio 2022.
 
-#### Actions
+#### Features
 
-Available from **Tools → Riwaq Actions**:
+- **Tool Window**: Comprehensive 4-tab interface (Modules, Ask AI, Diagram, Insights)
+- **Server Management**: Built-in server process control with auto-start capability
+- **Interactive Chat UI**: AI-powered Q&A about your codebase
+- **Architecture Diagrams**: Mermaid-based visualization
+- **Code Health Metrics**: Real-time statistics on coupling, cohesion, and module quality
+- **Integrated Commands**: Menu commands for server control and project analysis
 
-- **Start Riwaq Server**: Manually start the analysis server
-- **Stop Riwaq Server**: Stop the running server
-- **Restart Riwaq Server**: Restart the server
-- **Analyze Project**: Analyze the current project
-- **Ask About Codebase**: Open the AI Q&A panel
-- **View Architecture Diagram**: Open the diagram visualization
+#### Installation
+
+**From Source:**
+
+1. Clone the repository
+2. Build the Riwaq core binary:
+   ```bash
+   cd core
+   cargo build --release
+   ```
+3. Open `visual-studio-extension\RiwaqArch.sln` in Visual Studio 2022
+4. Build the solution (Ctrl+Shift+B)
+5. The VSIX file will be in `bin\Debug\` or `bin\Release\`
+6. Double-click the VSIX file to install
+
+**Development:**
+
+```bash
+# Open solution in Visual Studio 2022
+visual-studio-extension\RiwaqArch.sln
+
+# Build (Ctrl+Shift+B)
+
+# Run with debugging (F5)
+# This will launch an Experimental Instance of Visual Studio
+```
+
+#### Configuration
+
+Configure the extension via **Tools → Options → Riwaq Arch**:
+
+- **Server URL**: Where the Riwaq server is running (default: `http://127.0.0.1:9527`)
+- **Auto-start Server**: Automatically start the bundled server when Visual Studio opens
+- **LLM Configuration**: API key, endpoint, and model selection
+- **Excluded Directories**: Directories to skip during analysis
+
+The extension includes a **bundled Riwaq server binary** (riwaq.exe) that is automatically copied during the build process.
 
 #### Requirements
 
-- IntelliJ IDEA 2023.2 or later (or compatible JetBrains IDE)
-- Java 17 or later
+- Visual Studio 2022 (Community, Professional, or Enterprise)
+- Windows 10 or later
 - Riwaq server (bundled or user-provided)
+
+#### Menu Commands
+
+Available from **Tools → Riwaq Arch**:
+
+- **Analyze Project**: Analyze the current solution
+- **Start Server**: Start the Riwaq analysis server
+- **Stop Server**: Stop the running server
 
 ---
 
@@ -404,6 +447,17 @@ riwaq-arch/
 │   ├── build.gradle.kts     # Gradle build config
 │   └── plugin.xml           # Plugin manifest
 │
+├── visual-studio-extension/ # Visual Studio extension
+│   ├── Commands/            # Menu command handlers
+│   ├── ToolWindows/         # Tool window implementation
+│   ├── Resources/           # Icons and images
+│   ├── bin/                 # Bundled server binary
+│   ├── RiwaqArch.csproj     # Project file
+│   ├── source.extension.vsixmanifest
+│   ├── ServerManager.cs     # Server process management
+│   ├── SettingsOptions.cs   # Settings page
+│   └── RiwaqClient.cs       # API client
+│
 └── README.md
 ```
 
@@ -457,6 +511,13 @@ riwaq ask --path . --question "What is this project?"
 3. Check server URL in **Settings → Tools → Riwaq Arch**
 4. Verify server binary path is correct
 5. Check plugin logs in IDE's internal log viewer
+
+**Visual Studio Extension Not Connecting**
+1. Check if server is running via **Tools → Riwaq Arch → Start Server**
+2. Check server URL in **Tools → Options → Riwaq Arch**
+3. Verify the bundled binary exists in the extension directory
+4. Check Windows Firewall settings
+5. Look for error messages in the Visual Studio output window
 
 ---
 

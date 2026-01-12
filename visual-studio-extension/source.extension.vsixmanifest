@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+    <Metadata>
+        <Identity Id="RiwaqArch.YASSERRMD" Version="1.0.0" Publisher="YASSERRMD" />
+        <DisplayName>Riwaq Arch</DisplayName>
+        <Description xml:space="preserve">AI-powered codebase documentation and architecture analysis tool for Visual Studio.</Description>
+        <MoreInfo>https://github.com/YASSERRMD/riwaq-arch</MoreInfo>
+        <License>LICENSE</License>
+        <GettingStartedGuide>https://github.com/YASSERRMD/riwaq-arch/blob/main/README.md</GettingStartedGuide>
+        <ReleaseNotes>https://github.com/YASSERRMD/riwaq-arch/releases</ReleaseNotes>
+        <Icon>Resources\icon.png</Icon>
+        <PreviewImage>Resources\preview.png</PreviewImage>
+        <Tags>documentation, architecture, AI, LLM, codebase, analysis, Rust</Tags>
+    </Metadata>
+    <Installation>
+        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)">
+            <ProductArchitecture>amd64,x86</ProductArchitecture>
+        </InstallationTarget>
+        <InstallationTarget Id="Microsoft.VisualStudio.Pro" Version="[17.0, 18.0)">
+            <ProductArchitecture>amd64,x86</ProductArchitecture>
+        </InstallationTarget>
+        <InstallationTarget Id="Microsoft.VisualStudio.Enterprise" Version="[17.0, 18.0)">
+            <ProductArchitecture>amd64,x86</ProductArchitecture>
+        </InstallationTarget>
+    </Installation>
+    <Dependencies>
+        <Dependency Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,18.0)" />
+        <Dependency Id="Microsoft.VisualStudio.Component.Roslyn.LanguageServices" Version="[17.0,18.0)" />
+    </Dependencies>
+    <Assets>
+        <Asset Type="Microsoft.VisualStudio.VsPackage" Path="RiwaqArchPackage.cs" />
+        <Asset Type="ToolWindow" Path="ToolWindows\ArchitectureToolWindow.cs" />
+    </Assets>
+    <Prerequisites>
+        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,18.0)" />
+    </Prerequisites>
+</PackageManifest>
