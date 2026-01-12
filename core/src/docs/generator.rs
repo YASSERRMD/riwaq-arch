@@ -534,7 +534,7 @@ impl DocGenerator {
 
     /// Process embedded diagrams in content.
     fn process_embedded_diagrams(&self, content: &str, prefix: &str) -> String {
-        let regex = Regex::new(r"(?s)```mermaid\n(.*?)\n```").unwrap();
+        let regex = Regex::new(r"(?s)```mermaid\s*(.*?)```").unwrap();
         
         regex.replace_all(content, |caps: &regex::Captures| {
             let mermaid_code = &caps[1];
