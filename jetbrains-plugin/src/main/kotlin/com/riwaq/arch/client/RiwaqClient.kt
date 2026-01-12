@@ -3,6 +3,7 @@ package com.riwaq.arch.client
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.riwaq.arch.client.models.*

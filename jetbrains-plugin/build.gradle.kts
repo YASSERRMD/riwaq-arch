@@ -24,6 +24,7 @@ dependencies {
 
     // Kotlin coroutines for async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.3")
 }
 
 // Configure Gradle IntelliJ Plugin
@@ -45,9 +46,7 @@ tasks {
 
     // Copy the Riwaq binary from the VSCode extension to the plugin resources
     register<Copy>("copyRiwaqBinary") {
-        dependsOn("prepareSandbox")
         val os = System.getProperty("os.name").lowercase()
-        val arch = System.getProperty("os.arch").lowercase()
 
         // Determine binary name based on OS
         val binaryName = when {
@@ -57,16 +56,14 @@ tasks {
 
         // Source: VSCode extension bin directory
         val sourceBinary = file("${project.projectDir.parentFile.absolutePath}/vscode-extension/bin/$binaryName")
-        // Destination: Plugin lib directory in sandbox
-        val destinationDir = layout.buildDirectory.dir("idea-sandbox/plugins/Riwaq Arch/lib/bin").get().asFile
 
         if (sourceBinary.exists()) {
             from(sourceBinary)
-            into(destinationDir)
+            into(layout.buildDirectory.dir("idea-sandbox/plugins/Riwaq Arch/lib/bin"))
             doLast {
                 // Make binary executable on Unix-like systems
                 if (!os.contains("windows")) {
-                    val binaryFile = file("$destinationDir/$binaryName")
+                    val binaryFile = file("${layout.buildDirectory.dir("idea-sandbox/plugins/Riwaq Arch/lib/bin").get().asFile}/$binaryName")
                     binaryFile.setExecutable(true, false)
                 }
             }
@@ -76,19 +73,54 @@ tasks {
         }
     }
 
-    // Ensure binary is copied during plugin preparation
+    // Ensure binary is copied before plugin preparation
     named("prepareSandbox") {
-        finalizedBy("copyRiwaqBinary")
+        dependsOn("copyRiwaqBinary")
     }
 
     // Also copy when building the plugin distribution
     named("buildPlugin") {
         dependsOn("copyRiwaqBinary")
+        doLast {
+            // Manually add the binary to the distribution ZIP
+            val os = System.getProperty("os.name").lowercase()
+            val binaryName = when {
+                os.contains("windows") -> "riwaq.exe"
+                else -> "riwaq"
+            }
+            val sourceBinary = file("${project.projectDir.parentFile.absolutePath}/vscode-extension/bin/$binaryName")
+            val distZip = file("build/distributions/riwaq-arch-${project.version}.zip")
+
+            if (sourceBinary.exists() && distZip.exists()) {
+                val tempDir = file("build/distributions/temp/riwaq-arch")
+                tempDir.deleteRecursively()
+                tempDir.mkdirs()
+                file("$tempDir/lib/bin").mkdirs()
+
+                copy {
+                    from(sourceBinary)
+                    into(file("$tempDir/lib/bin"))
+                }
+
+                ant.invokeMethod("zip", mapOf(
+                    "destfile" to distZip,
+                    "basedir" to file("build/distributions/temp"),
+                    "update" to true
+                ))
+
+                file("build/distributions/temp").deleteRecursively()
+            }
+        }
+    }
+
+    // Disable searchable options task as it's not essential
+    named("buildSearchableOptions") {
+        enabled = false
     }
 
     patchPluginXml {
         sinceBuild.set("232")
-        untilBuild.set("241.*")
+        untilBuild.set("999.*")
     }
 
     signPlugin {

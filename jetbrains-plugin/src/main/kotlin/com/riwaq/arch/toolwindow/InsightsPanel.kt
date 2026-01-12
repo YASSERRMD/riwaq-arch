@@ -4,6 +4,7 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.riwaq.arch.client.models.AnalysisStats
 import java.awt.BorderLayout
+import java.awt.Font
 import java.awt.GridLayout
 import javax.swing.*
 

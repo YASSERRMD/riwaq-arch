@@ -17,6 +17,7 @@ import java.awt.FlowLayout
 import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
 import javax.swing.*
+import javax.swing.event.HyperlinkEvent
 
 /**
  * Panel for AI Q&A about the codebase.
@@ -138,26 +139,30 @@ class AskPanel(private val project: Project) : JPanel() {
                     when (streamResponse.type) {
                         "content" -> {
                             streamResponse.content?.let { responseBuilder.append(it) }
-                            updateResponse(responseBuilder.toString(), files)
+                            scope.launch {
+                                updateResponse(responseBuilder.toString(), files)
+                            }
                         }
                         "file" -> {
                             streamResponse.file?.let { file ->
                                 val fileRef = "[${file.path}${file.line?.let { ":$it" } ?: ""}]"
                                 if (!files.contains(fileRef)) {
                                     files.add(fileRef)
-                                    updateResponse(responseBuilder.toString(), files)
+                                    scope.launch {
+                                        updateResponse(responseBuilder.toString(), files)
+                                    }
                                 }
                             }
                         }
                         "error" -> {
                             streamResponse.error?.let { error ->
-                                withContext(Dispatchers.Swing) {
+                                scope.launch(Dispatchers.Swing) {
                                     showError(error)
                                 }
                             }
                         }
                         "done" -> {
-                            withContext(Dispatchers.Swing) {
+                            scope.launch(Dispatchers.Swing) {
                                 isProcessing = false
                                 askButton.isEnabled = true
                                 askButton.text = "Ask"

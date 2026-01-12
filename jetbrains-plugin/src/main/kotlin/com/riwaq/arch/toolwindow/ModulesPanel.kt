@@ -8,6 +8,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.riwaq.arch.client.models.ModuleInfo
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Font
 import javax.swing.*
 
 /**

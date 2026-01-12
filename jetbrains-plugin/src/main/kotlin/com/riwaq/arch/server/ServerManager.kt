@@ -7,6 +7,7 @@ import com.intellij.execution.ui.ConsoleView
 import com.intellij.execution.ui.ConsoleViewContentType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
@@ -61,7 +62,7 @@ class ServerManager : Disposable {
 
         try {
             val command = GeneralCommandLine(serverPath)
-            command.setWorkDirectory(null)
+            command.withWorkDirectory(null as String?)
 
             // Pass environment variables for LLM configuration
             if (settings.llmApiKey.isNotEmpty()) {
@@ -171,7 +172,7 @@ class ServerManager : Disposable {
      * Wait for the server to be ready by checking the health endpoint.
      */
     private suspend fun waitForServerReady(serverUrl: String): Boolean {
-        val client = okhttp3.OkHttpClient()
+        val client = okhttp3.OkHttpClient.Builder().build()
         val request = okhttp3.Request.Builder()
             .url("$serverUrl/health")
             .build()

@@ -42,10 +42,6 @@
         <projectConfigurable parentId="project" id="RiwaqProjectSettings"
                              instance="com.riwaq.arch.settings.RiwaqProjectConfigurable"
                              displayName="Riwaq Arch"/>
-
-        <!-- Status Bar Widget -->
-        <statusBarWidgetFactory id="RiwaqStatusBar"
-                                implementation="com.riwaq.arch.statusbar.RiwaqStatusBarWidgetFactory"/>
     </extensions>
 
     <actions>

@@ -43,7 +43,7 @@ data class ServiceInfo(
     val name: String,
     val path: String,
     val entryPoints: List<String>,
-    description: String? = null
+    val description: String? = null
 )
 
 data class ModuleMetrics(
@@ -110,6 +110,6 @@ data class StreamResponse(
 
 data class FileReference(
     val path: String,
-    line: Int? = null,
-    description: String? = null
+    val line: Int? = null,
+    val description: String? = null
 )

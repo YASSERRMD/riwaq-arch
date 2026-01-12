@@ -26,7 +26,8 @@ class AskAboutSelectionAction : AnAction() {
     override fun update(e: AnActionEvent) {
         val editor = e.getData(CommonDataKeys.EDITOR)
         val selectionModel = editor?.selectionModel
-        val hasSelection = selectionModel != null && selectionModel.selectedText.isNotEmpty()
+        val selectedText = selectionModel?.selectedText
+        val hasSelection = selectedText != null && selectedText.isNotEmpty()
         e.presentation.isEnabled = hasSelection
     }
 }
