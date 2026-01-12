@@ -5,12 +5,14 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use super::state::AppState;
 use crate::analysis::analyzer::CodebaseAnalyzer;
+use crate::diagrams::DiagramRenderer;
 use crate::docs::{DocGenerator, DocGeneratorConfig};
 use crate::llm::LLMClient;
 
@@ -74,6 +76,15 @@ pub struct AskResponse {
     pub file_refs: Vec<FileRef>,
     pub confidence: f32,
     pub error: Option<String>,
+    /// SVG diagrams extracted from the answer (rendered images, not text)
+    pub diagrams: Vec<DiagramData>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagramData {
+    pub name: String,
+    pub svg: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -96,7 +107,8 @@ pub struct HealthResponse {
 #[serde(rename_all = "camelCase")]
 pub struct DiagramResponse {
     pub success: bool,
-    pub diagram: String,
+    /// SVG content (rendered image, not mermaid text)
+    pub svg: String,
     pub format: String,
 }
 
@@ -277,6 +289,7 @@ pub async fn ask_question(
                 file_refs: vec![],
                 confidence: 0.0,
                 error: Some("No analysis available. Please analyze a workspace first.".to_string()),
+                diagrams: vec![],
             }),
         );
     };
@@ -294,6 +307,7 @@ pub async fn ask_question(
                     file_refs: vec![],
                     confidence: 0.0,
                     error: Some(format!("LLM client error: {}", e)),
+                    diagrams: vec![],
                 }),
             );
         }
@@ -311,14 +325,18 @@ pub async fn ask_question(
                 })
                 .collect();
 
+            // Extract and render any Mermaid diagrams to SVG
+            let (clean_answer, diagrams) = extract_and_render_diagrams(&result.answer);
+
             (
                 StatusCode::OK,
                 Json(AskResponse {
                     success: true,
-                    answer: Some(result.answer),
+                    answer: Some(clean_answer),
                     file_refs,
                     confidence: result.confidence,
                     error: None,
+                    diagrams,
                 }),
             )
         }
@@ -332,13 +350,59 @@ pub async fn ask_question(
                     file_refs: vec![],
                     confidence: 0.0,
                     error: Some(e.to_string()),
+                    diagrams: vec![],
                 }),
             )
         }
     }
 }
 
-/// Get architecture diagram.
+/// Extract Mermaid code blocks from text and render them to SVG images
+fn extract_and_render_diagrams(text: &str) -> (String, Vec<DiagramData>) {
+    let mut diagrams = Vec::new();
+    let mut clean_text = text.to_string();
+    
+    // Match ```mermaid ... ``` blocks
+    let mermaid_regex = Regex::new(r"```mermaid\s*([\s\S]*?)```").unwrap();
+    
+    let mut diagram_count = 0;
+    for cap in mermaid_regex.captures_iter(text) {
+        let full_match = cap.get(0).unwrap().as_str();
+        let mermaid_code = cap.get(1).unwrap().as_str().trim();
+        
+        // Try to render to SVG
+        match render_mermaid_to_svg(mermaid_code) {
+            Ok(svg) => {
+                diagram_count += 1;
+                let name = format!("diagram_{}", diagram_count);
+                
+                // Replace the mermaid block with a placeholder referencing the diagram
+                let placeholder = format!("![{}](embedded:{})", name, name);
+                clean_text = clean_text.replace(full_match, &placeholder);
+                
+                diagrams.push(DiagramData {
+                    name,
+                    svg,
+                });
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to render Mermaid diagram");
+                // Keep original mermaid code if rendering fails
+            }
+        }
+    }
+    
+    (clean_text, diagrams)
+}
+
+/// Render Mermaid code to SVG string
+fn render_mermaid_to_svg(mermaid_code: &str) -> Result<String, String> {
+    let config = crate::diagrams::DiagramRendererConfig::default();
+    let renderer = DiagramRenderer::new(config)?;
+    renderer.render_to_svg(mermaid_code)
+}
+
+/// Get architecture diagram as SVG image.
 pub async fn get_architecture_diagram(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
@@ -350,25 +414,39 @@ pub async fn get_architecture_diagram(
             StatusCode::BAD_REQUEST,
             Json(DiagramResponse {
                 success: false,
-                diagram: String::new(),
-                format: "mermaid".to_string(),
+                svg: String::new(),
+                format: "svg".to_string(),
             }),
         );
     };
 
-    let diagram = crate::docs::mermaid::generate_architecture_diagram(snapshot);
-
-    (
-        StatusCode::OK,
-        Json(DiagramResponse {
-            success: true,
-            diagram,
-            format: "mermaid".to_string(),
-        }),
-    )
+    // Generate Mermaid code and render to SVG
+    let mermaid_code = crate::docs::mermaid::generate_architecture_diagram(snapshot);
+    
+    match render_mermaid_to_svg(&mermaid_code) {
+        Ok(svg) => (
+            StatusCode::OK,
+            Json(DiagramResponse {
+                success: true,
+                svg,
+                format: "svg".to_string(),
+            }),
+        ),
+        Err(e) => {
+            error!(error = %e, "Failed to render architecture diagram");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(DiagramResponse {
+                    success: false,
+                    svg: String::new(),
+                    format: "svg".to_string(),
+                }),
+            )
+        }
+    }
 }
 
-/// Get dependency diagram.
+/// Get dependency diagram as SVG image.
 pub async fn get_dependency_diagram(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
@@ -380,20 +458,35 @@ pub async fn get_dependency_diagram(
             StatusCode::BAD_REQUEST,
             Json(DiagramResponse {
                 success: false,
-                diagram: String::new(),
-                format: "mermaid".to_string(),
+                svg: String::new(),
+                format: "svg".to_string(),
             }),
         );
     };
 
-    let diagram = crate::docs::mermaid::generate_dependency_diagram(&snapshot.dependency_graph);
-
-    (
-        StatusCode::OK,
-        Json(DiagramResponse {
-            success: true,
-            diagram,
-            format: "mermaid".to_string(),
-        }),
-    )
+    // Generate Mermaid code and render to SVG
+    let mermaid_code = crate::docs::mermaid::generate_dependency_diagram(&snapshot.dependency_graph);
+    
+    match render_mermaid_to_svg(&mermaid_code) {
+        Ok(svg) => (
+            StatusCode::OK,
+            Json(DiagramResponse {
+                success: true,
+                svg,
+                format: "svg".to_string(),
+            }),
+        ),
+        Err(e) => {
+            error!(error = %e, "Failed to render dependency diagram");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(DiagramResponse {
+                    success: false,
+                    svg: String::new(),
+                    format: "svg".to_string(),
+                }),
+            )
+        }
+    }
 }
+

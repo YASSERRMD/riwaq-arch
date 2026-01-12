@@ -2,13 +2,16 @@
 //!
 //! This module orchestrates the generation of all documentation types
 //! from a codebase snapshot, optionally using LLM for enhanced content.
+//! 
+//! All diagrams are rendered as SVG images, not as Mermaid text.
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::info;
+use tracing::{info, warn};
 
 use super::markdown::MarkdownBuilder;
 use super::mermaid;
+use crate::diagrams::{DiagramRenderer, DiagramRendererConfig};
 use crate::errors::Result;
 use crate::llm::LLMConfig;
 use crate::models::snapshot::CodebaseSnapshot;
@@ -262,10 +265,13 @@ impl DocGenerator {
             snapshot.statistics.total_lines,
         ));
 
-        // Architecture diagram
+        // Architecture diagram - rendered as SVG image
         if self.config.include_diagrams {
             md.h2("Architecture Diagram");
-            md.raw(&mermaid::generate_architecture_diagram(snapshot));
+            let mermaid_code = mermaid::generate_architecture_diagram(snapshot);
+            if let Some(svg_path) = self.render_diagram_to_svg(&mermaid_code, "architecture_diagram") {
+                md.paragraph(&format!("![Architecture Diagram]({})", svg_path));
+            }
         }
 
         // Services and entry points
@@ -306,10 +312,13 @@ impl DocGenerator {
             md.newline();
         }
 
-        // Dependency diagram
+        // Dependency diagram - rendered as SVG image
         if self.config.include_diagrams && !snapshot.dependency_graph.edges.is_empty() {
             md.h2("Module Dependencies");
-            md.raw(&mermaid::generate_dependency_diagram(&snapshot.dependency_graph));
+            let mermaid_code = mermaid::generate_dependency_diagram(&snapshot.dependency_graph);
+            if let Some(svg_path) = self.render_diagram_to_svg(&mermaid_code, "dependency_diagram") {
+                md.paragraph(&format!("![Dependency Diagram]({})", svg_path));
+            }
         }
 
         // Circular dependencies warning
@@ -622,6 +631,53 @@ impl DocGenerator {
             size,
             doc_type,
         })
+    }
+
+    /// Render Mermaid diagram to SVG and save to diagrams directory.
+    /// Returns the relative path to the SVG file for use in markdown.
+    fn render_diagram_to_svg(&self, mermaid_code: &str, name: &str) -> Option<String> {
+        // Create diagrams subdirectory
+        let diagrams_dir = self.config.output_dir.join("diagrams");
+        if let Err(e) = fs::create_dir_all(&diagrams_dir) {
+            warn!(error = %e, "Failed to create diagrams directory");
+            return None;
+        }
+
+        // Set up renderer config
+        let config = DiagramRendererConfig {
+            output_dir: diagrams_dir.clone(),
+        };
+
+        // Create renderer
+        let renderer = match DiagramRenderer::new(config) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(error = %e, "Failed to create diagram renderer");
+                return None;
+            }
+        };
+
+        // Render to SVG
+        match renderer.render_to_svg(mermaid_code) {
+            Ok(svg) => {
+                let svg_filename = format!("{}.svg", name);
+                let svg_path = diagrams_dir.join(&svg_filename);
+                
+                if let Err(e) = fs::write(&svg_path, &svg) {
+                    warn!(error = %e, "Failed to write SVG file");
+                    return None;
+                }
+
+                info!(path = %svg_path.display(), "Rendered diagram to SVG");
+                
+                // Return relative path for markdown
+                Some(format!("diagrams/{}", svg_filename))
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to render Mermaid to SVG");
+                None
+            }
+        }
     }
 }
 

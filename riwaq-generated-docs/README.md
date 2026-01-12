@@ -15,22 +15,22 @@ Auto-generated documentation for the codebase.
 
 | Metric | Value |
 | --- | --- |
-| Files | 84 |
-| Modules | 84 |
-| Functions | 447 |
-| Types | 171 |
-| Lines of Code | 18442 |
+| Files | 86 |
+| Modules | 86 |
+| Functions | 455 |
+| Types | 175 |
+| Lines of Code | 18628 |
 
 ## Languages
 
 | Language | Files |
 | --- | --- |
-| Kotlin | 23 |
-| TypeScript | 8 |
-| Rust | 43 |
 | C# | 10 |
+| TypeScript | 8 |
+| Rust | 45 |
+| Kotlin | 23 |
 
 ---
 
-*Generated on 2026-01-12 18:05:42 UTC by [Riwaq Arch](https://github.com/YASSERRMD/riwaq-arch)*
+*Generated on 2026-01-12 18:47:47 UTC by [Riwaq Arch](https://github.com/YASSERRMD/riwaq-arch)*
 
