@@ -64,6 +64,10 @@
                     class="com.riwaq.arch.actions.AnalyzeProjectAction"
                     text="Analyze Project"
                     description="Analyze the current project"/>
+            <action id="Riwaq.GenerateDocs"
+                    class="com.riwaq.arch.actions.GenerateDocsAction"
+                    text="Generate Documentation (BRD/SRS/API)"
+                    description="Generate comprehensive documentation including BRD, SRS, and API Reference"/>
             <action id="Riwaq.OpenAskPanel"
                     class="com.riwaq.arch.actions.OpenAskPanelAction"
                     text="Ask About Codebase"

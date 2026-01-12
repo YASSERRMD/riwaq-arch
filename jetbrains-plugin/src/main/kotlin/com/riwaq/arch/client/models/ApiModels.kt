@@ -12,6 +12,19 @@ data class AskRequest(
     val question: String
 )
 
+data class DocGenerationRequest(
+    val path: String,
+    val output: String,
+    val skipLlm: Boolean = false
+)
+
+data class DocGenerationResponse(
+    val success: Boolean,
+    val fileCount: Int,
+    val outputDir: String,
+    val generationTimeMs: Long
+)
+
 /**
  * Response models from API calls.
  */

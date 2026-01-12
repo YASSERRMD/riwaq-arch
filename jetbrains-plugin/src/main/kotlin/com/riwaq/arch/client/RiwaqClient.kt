@@ -241,4 +241,42 @@ class RiwaqClient(val project: Project) {
             Result.failure(e)
         }
     }
+    /**
+     * Generate documentation.
+     */
+    suspend fun generateDocs(outputPath: String): Result<DocGenerationResponse> {
+        return try {
+            val projectPath = project.basePath ?: run {
+                return Result.failure(IOException("Project path is null"))
+            }
+
+            val request = DocGenerationRequest(
+                path = projectPath,
+                output = outputPath,
+                skipLlm = false
+            )
+
+            val body = gson.toJson(request).toRequestBody(JSON)
+
+            val httpRequest = Request.Builder()
+                .url("${getBaseUrl()}/docgen")
+                .post(body)
+                .build()
+
+            val response = client.newCall(httpRequest).execute()
+            val responseBody = response.body?.string() ?: run {
+                return Result.failure(IOException("Empty response body"))
+            }
+
+            if (response.isSuccessful) {
+                val result = gson.fromJson(responseBody, DocGenerationResponse::class.java)
+                Result.success(result)
+            } else {
+                Result.failure(IOException("Server error: ${response.code} - $responseBody"))
+            }
+        } catch (e: Exception) {
+            LOG.error("Failed to generate documentation", e)
+            Result.failure(e)
+        }
+    }
 }

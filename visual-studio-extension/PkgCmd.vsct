@@ -49,6 +49,15 @@
           <ToolTipText>Stop the Riwaq analysis server</ToolTipText>
         </Strings>
       </Button>
+
+      <!-- Generate Docs -->
+      <Button Guid="guidRiwaqArchCmdSet" id="cmdidGenerateDocs" priority="0x0103" type="Button">
+        <Parent Guid="guidRiwaqArchCmdSet" id="MainGroup"/>
+        <Strings>
+          <ButtonText>Generate Documentation</ButtonText>
+          <ToolTipText>Generate BRD, SRS and API Reference</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
 
     <Bitmaps>
@@ -66,6 +75,7 @@
       <IDSymbol name="cmdidAnalyzeProject" value="0x0100"/>
       <IDSymbol name="cmdidStartServer" value="0x0101"/>
       <IDSymbol name="cmdidStopServer" value="0x0102"/>
+      <IDSymbol name="cmdidGenerateDocs" value="0x0106"/>
     </GuidSymbol>
 
     <GuidSymbol name="guidImages" value="{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}">

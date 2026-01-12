@@ -39,6 +39,7 @@ namespace RiwaqArch
             await AnalyzeProjectCommand.InitializeAsync(this);
             await StartServerCommand.InitializeAsync(this);
             await StopServerCommand.InitializeAsync(this);
+            await GenerateDocsCommand.InitializeAsync(this);
         }
 
         protected override void Dispose(bool disposing)

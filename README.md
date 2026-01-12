@@ -26,7 +26,7 @@
 
 - **Multi-Language Support**: Parse and analyze Rust, Python, JavaScript, TypeScript, and Go codebases
 - **Architecture Discovery**: Automatically detect modules, services, and dependency relationships
-- **LLM-Enhanced Documentation**: Generate human-readable documentation powered by AI
+- **LLM-Enhanced Documentation**: Generate human-readable documentation powered by AI (Architecture, BRD, SRS, API Reference)
 - **Visual Diagrams**: Create Mermaid diagrams for architecture and dependencies
 - **Git Intelligence**: Analyze commit history to identify code hotspots and change patterns
 - **Interactive Q&A**: Ask natural language questions about your codebase
@@ -91,9 +91,11 @@ riwaq docgen --path /path/to/your/project --output ./docs
 Generates a complete documentation suite:
 - `README.md` - Project overview with statistics
 - `ARCHITECTURE_OVERVIEW.md` - System architecture with diagrams
+- `BUSINESS_REQUIREMENTS.md` - AI-generated Business Requirements Document (BRD)
+- `SOFTWARE_REQUIREMENTS.md` - AI-generated Software Requirements Specification (SRS)
 - `MODULES.md` - Detailed module documentation
 - `DEPENDENCIES.md` - Dependency analysis and risk assessment
-- `API_REFERENCE.md` - Service endpoint documentation
+- `API_REFERENCE.md` - Service endpoint documentation (REST, gRPC, GraphQL)
 - `adrs/` - Architecture Decision Records
 
 ### 3. Ask Questions

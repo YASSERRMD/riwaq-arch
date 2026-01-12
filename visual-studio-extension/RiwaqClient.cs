@@ -65,9 +65,41 @@ namespace RiwaqArch
 
             return JsonConvert.DeserializeObject<DiagramData>(responseString);
         }
+        public async Task<DocGenerationResponse> GenerateDocsAsync(string projectPath, string output)
+        {
+            var request = new DocGenerationRequest
+            {
+                path = projectPath,
+                output = output,
+                skipLlm = false
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(request));
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+            var response = await _httpClient.PostAsync($"{_baseUrl}/docgen", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            return JsonConvert.DeserializeObject<DocGenerationResponse>(responseString);
+        }
     }
 
     // Data models
+    public class DocGenerationRequest
+    {
+        public string path { get; set; }
+        public string output { get; set; }
+        public bool skipLlm { get; set; }
+    }
+
+    public class DocGenerationResponse
+    {
+        public bool success { get; set; }
+        public int fileCount { get; set; }
+        public string outputDir { get; set; }
+        public long generationTimeMs { get; set; }
+    }
+
     public class AnalyzeRequest
     {
         public string projectPath { get; set; }
