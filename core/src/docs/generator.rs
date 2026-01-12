@@ -7,6 +7,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use regex::Regex;
 use tracing::{info, warn};
 
 use super::markdown::MarkdownBuilder;
@@ -531,6 +532,24 @@ impl DocGenerator {
         self.write_file("DEPENDENCIES.md", &md.build(), DocType::DependencyReport)
     }
 
+    /// Process embedded diagrams in content.
+    fn process_embedded_diagrams(&self, content: &str, prefix: &str) -> String {
+        let regex = Regex::new(r"(?s)```mermaid\n(.*?)\n```").unwrap();
+        
+        regex.replace_all(content, |caps: &regex::Captures| {
+            let mermaid_code = &caps[1];
+            let id = uuid::Uuid::new_v4();
+            let name = format!("{}_{}", prefix, id);
+            
+            if let Some(path) = self.render_diagram_to_svg(mermaid_code, &name) {
+                format!("\n![Diagram]({})\n", path)
+            } else {
+                warn!("Failed to render embedded diagram {}", name);
+                 format!("\n```mermaid\n{}\n```\n", mermaid_code)
+            }
+        }).to_string()
+    }
+
     /// Generate API reference.
     /// Generate BRD using LLM.
     async fn generate_brd(&self, snapshot: &CodebaseSnapshot, project_name: &str) -> Result<GeneratedFile> {
@@ -538,7 +557,7 @@ impl DocGenerator {
             let context = crate::llm::prompts::truncate_context(&self.generate_context_summary(snapshot), 12000);
             let prompt = crate::llm::prompts::generate_brd_prompt(project_name, &context);
             if let Ok(res) = self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
-                res.content
+                self.process_embedded_diagrams(&res.content, "brd")
             } else {
                  "# Business Requirements\n\n(LLM generation failed)".to_string()
             }
@@ -554,7 +573,7 @@ impl DocGenerator {
             let context = crate::llm::prompts::truncate_context(&self.generate_context_summary(snapshot), 12000);
             let prompt = crate::llm::prompts::generate_srs_prompt(project_name, &context);
              if let Ok(res) = self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
-                res.content
+                self.process_embedded_diagrams(&res.content, "srs")
             } else {
                  "# Software Requirements\n\n(LLM generation failed)".to_string()
             }
