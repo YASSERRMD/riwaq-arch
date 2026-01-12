@@ -362,37 +362,66 @@ fn extract_and_render_diagrams(text: &str) -> (String, Vec<DiagramData>) {
     let mut diagrams = Vec::new();
     let mut clean_text = text.to_string();
     
-    // Match ```mermaid ... ``` blocks
-    let mermaid_regex = Regex::new(r"```mermaid\s*([\s\S]*?)```").unwrap();
+    // Pattern 1: Match ```mermaid ... ``` blocks (fenced)
+    let fenced_regex = Regex::new(r"```mermaid\s*([\s\S]*?)```").unwrap();
     
+    // Pattern 2: Match unfenced mermaid diagram blocks (graph, flowchart, sequenceDiagram, etc.)
+    // This catches LLM responses that don't use proper code fences
+    let unfenced_regex = Regex::new(
+        r"(?m)^((?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey)\s+(?:TD|TB|BT|RL|LR)?[\s\S]*?)(?:\n\n|\z)"
+    ).unwrap();
+
     let mut diagram_count = 0;
-    for cap in mermaid_regex.captures_iter(text) {
+
+    // First, handle fenced mermaid blocks
+    for cap in fenced_regex.captures_iter(text) {
         let full_match = cap.get(0).unwrap().as_str();
         let mermaid_code = cap.get(1).unwrap().as_str().trim();
         
-        // Try to render to SVG
-        match render_mermaid_to_svg(mermaid_code) {
-            Ok(svg) => {
-                diagram_count += 1;
-                let name = format!("diagram_{}", diagram_count);
-                
-                // Replace the mermaid block with a placeholder referencing the diagram
-                let placeholder = format!("![{}](embedded:{})", name, name);
-                clean_text = clean_text.replace(full_match, &placeholder);
-                
-                diagrams.push(DiagramData {
-                    name,
-                    svg,
-                });
-            }
-            Err(e) => {
-                warn!(error = %e, "Failed to render Mermaid diagram");
-                // Keep original mermaid code if rendering fails
-            }
+        if let Ok(svg) = render_mermaid_to_svg(mermaid_code) {
+            diagram_count += 1;
+            let name = format!("diagram_{}", diagram_count);
+            
+            // Remove the mermaid block from text since we'll show SVG
+            clean_text = clean_text.replace(full_match, "");
+            
+            diagrams.push(DiagramData {
+                name,
+                svg,
+            });
+        }
+    }
+
+    // Then, handle unfenced mermaid diagrams (raw code in response)
+    for cap in unfenced_regex.captures_iter(&clean_text.clone()) {
+        let full_match = cap.get(0).unwrap().as_str();
+        let mermaid_code = cap.get(1).unwrap().as_str().trim();
+        
+        // Skip if already processed or too short
+        if mermaid_code.len() < 10 {
+            continue;
+        }
+
+        if let Ok(svg) = render_mermaid_to_svg(mermaid_code) {
+            diagram_count += 1;
+            let name = format!("diagram_{}", diagram_count);
+            
+            // Remove the mermaid code from text
+            clean_text = clean_text.replace(full_match, "");
+            
+            diagrams.push(DiagramData {
+                name,
+                svg,
+            });
         }
     }
     
-    (clean_text, diagrams)
+    // Clean up extra newlines
+    while clean_text.contains("\n\n\n") {
+        clean_text = clean_text.replace("\n\n\n", "\n\n");
+    }
+    
+    (clean_text.trim().to_string(), diagrams)
 }
 
 /// Render Mermaid code to SVG string
