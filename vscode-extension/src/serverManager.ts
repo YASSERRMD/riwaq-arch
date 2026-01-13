@@ -29,16 +29,38 @@ export class ServerManager {
         let executable = config.get<string>('serverPath') || '';
 
         // Auto-detect bundled binary if not explicitly configured by user
-        // (empty string or 'riwaq' means use bundled)
         if (!executable || executable === 'riwaq') {
-            const bundledPath = path.join(this.context.extensionUri.fsPath, 'bin', 'riwaq');
+            // Determine platform-specific binary name
+            let binaryName = 'riwaq';
+            const platform = process.platform;
+
+            if (platform === 'win32') {
+                binaryName = 'riwaq.exe';
+            } else if (platform === 'darwin') {
+                binaryName = 'riwaq'; // Default for now, ideally 'riwaq-macos'
+            } else if (platform === 'linux') {
+                binaryName = 'riwaq';
+            }
+
+            const bundledPath = path.join(this.context.extensionUri.fsPath, 'bin', binaryName);
+
+            // Should also check for other variants if distributing multiple
+            // e.g. path.join(..., 'bin', `riwaq-${platform}-${process.arch}`)
+
             this.outputChannel.appendLine(`Checking for bundled binary at: ${bundledPath}`);
             if (fs.existsSync(bundledPath)) {
                 executable = bundledPath;
                 this.outputChannel.appendLine(`Using bundled binary at: ${executable}`);
             } else {
-                executable = 'riwaq'; // Fallback to PATH
-                this.outputChannel.appendLine(`Bundled binary not found, trying PATH...`);
+                // Fallback to generic 'riwaq' in bin folder
+                const genericPath = path.join(this.context.extensionUri.fsPath, 'bin', 'riwaq');
+                if (fs.existsSync(genericPath)) {
+                    executable = genericPath;
+                    this.outputChannel.appendLine(`Using generic bundled binary at: ${executable}`);
+                } else {
+                    executable = 'riwaq'; // Fallback to PATH
+                    this.outputChannel.appendLine(`Bundled binary not found, trying PATH...`);
+                }
             }
         } else {
             this.outputChannel.appendLine(`Using custom binary path: ${executable}`);

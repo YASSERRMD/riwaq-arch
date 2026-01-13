@@ -2,7 +2,7 @@
   "name": "riwaq-arch",
   "displayName": "Riwaq Arch - Living Documentation",
   "description": "AI-powered codebase documentation and architecture analysis for VS Code",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "publisher": "yasserrmd",
   "repository": {
     "type": "git",
@@ -142,6 +142,11 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically analyze workspace on open"
+        },
+        "riwaq.llmApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key (Legacy/Insecure). For dots masking, use command 'Riwaq: Set LLM API Key'."
         },
         "riwaq.llmEndpoint": {
           "type": "string",
