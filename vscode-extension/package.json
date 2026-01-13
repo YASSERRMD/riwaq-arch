@@ -2,7 +2,7 @@
   "name": "riwaq-arch",
   "displayName": "Riwaq Arch - Living Documentation",
   "description": "AI-powered codebase documentation and architecture analysis for VS Code",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "publisher": "yasserrmd",
   "repository": {
     "type": "git",
