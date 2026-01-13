@@ -57,7 +57,17 @@ export class ServerManager {
 
         // Get LLM configuration
         const env = { ...process.env };
-        const apiKey = config.get<string>('llmApiKey');
+
+        // Try getting API key from secure storage first
+        let apiKey = await this.context.secrets.get('riwaq.llmApiKey');
+
+        // Fallback to legacy config if not found in secrets
+        if (!apiKey) {
+            apiKey = config.get<string>('llmApiKey');
+            // If found in legacy config, migrate it to secrets? 
+            // Better not to auto-migrate without permission, but we'll use it.
+        }
+
         const endpoint = config.get<string>('llmEndpoint');
         const model = config.get<string>('llmModel');
 

@@ -52,7 +52,27 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('riwaq.generateDocs', generateDocs),
         vscode.commands.registerCommand('riwaq.askQuestion', () => askQuestion(context)),
         vscode.commands.registerCommand('riwaq.showArchitecture', () => showArchitecture(context)),
-        vscode.commands.registerCommand('riwaq.refreshSnapshot', refreshSnapshot)
+        vscode.commands.registerCommand('riwaq.refreshSnapshot', refreshSnapshot),
+        vscode.commands.registerCommand('riwaq.setApiKey', async () => {
+            const secret = await vscode.window.showInputBox({
+                prompt: 'Enter your LLM API Key (e.g. from OpenRouter, OpenAI)',
+                password: true, // This masks the input with dots
+                placeHolder: 'sk-...'
+            });
+
+            if (secret) {
+                await context.secrets.store('riwaq.llmApiKey', secret);
+                const selection = await vscode.window.showInformationMessage(
+                    'API Key saved securely. You should restart the server to apply changes.',
+                    'Restart Server'
+                );
+
+                if (selection === 'Restart Server') {
+                    await serverManager.stop();
+                    await serverManager.start();
+                }
+            }
+        })
     );
 
     // Auto-start server if configured
@@ -219,7 +239,7 @@ async function generateAllDocs(workspacePath: string, fullOutputPath: string, ou
 }
 
 async function generateSingleDoc(workspacePath: string, fullOutputPath: string, docType: string, docName: string) {
-    await vscode.window.withProgress({
+    const result = await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: `Riwaq: Generating ${docName}...`,
         cancellable: false
@@ -232,28 +252,30 @@ async function generateSingleDoc(workspacePath: string, fullOutputPath: string, 
             }
 
             progress.report({ message: `Generating ${docName}...` });
-            const result = await client.generateSingleDoc(workspacePath, fullOutputPath, docType);
-
-            if (result.success && result.filePath) {
-                const selection = await vscode.window.showInformationMessage(
-                    `✅ ${docName} generated in ${Math.round(result.generationTimeMs / 1000)}s`,
-                    'Open Document',
-                    'Open Folder'
-                );
-
-                if (selection === 'Open Document') {
-                    const docUri = vscode.Uri.file(result.filePath);
-                    vscode.commands.executeCommand('markdown.showPreview', docUri);
-                } else if (selection === 'Open Folder') {
-                    vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.filePath));
-                }
-            } else {
-                vscode.window.showErrorMessage(`Riwaq: Failed to generate ${docName} - ${result.error || 'Unknown error'}`);
-            }
+            return await client.generateSingleDoc(workspacePath, fullOutputPath, docType);
         } catch (error: any) {
             vscode.window.showErrorMessage(`Riwaq: Doc generation failed - ${error.message}`);
+            return null;
         }
     });
+
+    // Handle result AFTER progress completes
+    if (result && result.success && result.filePath) {
+        const selection = await vscode.window.showInformationMessage(
+            `✅ ${docName} generated in ${Math.round(result.generationTimeMs / 1000)}s`,
+            'Open Document',
+            'Open Folder'
+        );
+
+        if (selection === 'Open Document') {
+            const docUri = vscode.Uri.file(result.filePath);
+            vscode.commands.executeCommand('markdown.showPreview', docUri);
+        } else if (selection === 'Open Folder') {
+            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.filePath));
+        }
+    } else if (result && !result.success) {
+        vscode.window.showErrorMessage(`Riwaq: Failed to generate ${docName} - ${result.error || 'Unknown error'}`);
+    }
 }
 
 async function askQuestion(context: vscode.ExtensionContext) {

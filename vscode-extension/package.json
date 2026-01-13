@@ -2,7 +2,7 @@
   "name": "riwaq-arch",
   "displayName": "Riwaq Arch - Living Documentation",
   "description": "AI-powered codebase documentation and architecture analysis for VS Code",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "publisher": "yasserrmd",
   "repository": {
     "type": "git",
@@ -64,6 +64,11 @@
         "command": "riwaq.stopServer",
         "title": "Riwaq: Stop Server",
         "icon": "$(stop)"
+      },
+      {
+        "command": "riwaq.setApiKey",
+        "title": "Riwaq: Set LLM API Key",
+        "icon": "$(key)"
       }
     ],
     "viewsContainers": {
@@ -137,11 +142,6 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically analyze workspace on open"
-        },
-        "riwaq.llmApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key for LLM provider (OpenRouter, etc.)"
         },
         "riwaq.llmEndpoint": {
           "type": "string",
