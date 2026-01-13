@@ -112,6 +112,42 @@ pub struct DiagramResponse {
     pub format: String,
 }
 
+/// Request to generate a single document type
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SingleDocRequest {
+    pub path: String,
+    pub output: String,
+    /// Document type: srs, user_stories, brd, architecture, code_docs, api_specs, release_notes, user_guides, runbook
+    pub doc_type: String,
+}
+
+/// Response for single document generation
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SingleDocResponse {
+    pub success: bool,
+    pub doc_type: String,
+    pub file_path: Option<String>,
+    pub generation_time_ms: u64,
+    pub error: Option<String>,
+}
+
+/// List of available document types
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocTypesResponse {
+    pub doc_types: Vec<DocTypeInfo>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocTypeInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+}
+
 // ============================================================================
 // Handlers
 // ============================================================================
@@ -257,6 +293,209 @@ pub async fn generate_docs(
                     file_count: 0,
                     output_dir: req.output,
                     generation_time_ms: 0,
+                    error: Some(e.to_string()),
+                }),
+            )
+        }
+    }
+}
+
+/// List available document types.
+pub async fn list_doc_types() -> impl IntoResponse {
+    let doc_types = vec![
+        DocTypeInfo {
+            id: "srs".to_string(),
+            name: "Software Requirements Specification".to_string(),
+            description: "Functional and non-functional requirements, system interfaces, data requirements".to_string(),
+        },
+        DocTypeInfo {
+            id: "user_stories".to_string(),
+            name: "User Stories".to_string(),
+            description: "User personas, epics, detailed stories with acceptance criteria".to_string(),
+        },
+        DocTypeInfo {
+            id: "brd".to_string(),
+            name: "Business Requirements Document".to_string(),
+            description: "Business overview, objectives, stakeholders, ROI analysis".to_string(),
+        },
+        DocTypeInfo {
+            id: "architecture".to_string(),
+            name: "Architecture Documentation".to_string(),
+            description: "System overview, components, data, integration, deployment architecture".to_string(),
+        },
+        DocTypeInfo {
+            id: "code_docs".to_string(),
+            name: "Code Documentation".to_string(),
+            description: "Getting started, module docs, coding patterns, testing guide".to_string(),
+        },
+        DocTypeInfo {
+            id: "api_specs".to_string(),
+            name: "API Specifications".to_string(),
+            description: "API overview, REST endpoints, gRPC/GraphQL, error handling".to_string(),
+        },
+        DocTypeInfo {
+            id: "release_notes".to_string(),
+            name: "Release Notes".to_string(),
+            description: "Current release features, breaking changes, roadmap".to_string(),
+        },
+        DocTypeInfo {
+            id: "user_guides".to_string(),
+            name: "User Guides".to_string(),
+            description: "Quick start, features guide, troubleshooting, FAQ".to_string(),
+        },
+        DocTypeInfo {
+            id: "runbook".to_string(),
+            name: "Operations Runbook".to_string(),
+            description: "Deployment, monitoring, incident response, backup, maintenance".to_string(),
+        },
+    ];
+    
+    (StatusCode::OK, Json(DocTypesResponse { doc_types }))
+}
+
+/// Generate a single document type.
+pub async fn generate_single_doc(
+    State(state): State<AppState>,
+    Json(req): Json<SingleDocRequest>,
+) -> impl IntoResponse {
+    use crate::docs::{AgenticDocGenerator, DocumentType};
+    use std::time::Instant;
+    
+    info!(path = %req.path, doc_type = %req.doc_type, "Generating single document");
+    
+    let start = Instant::now();
+    let path = PathBuf::from(&req.path);
+    
+    // Parse document type
+    let doc_type = match req.doc_type.as_str() {
+        "srs" => DocumentType::SRS,
+        "user_stories" => DocumentType::UserStories,
+        "brd" => DocumentType::BRD,
+        "architecture" => DocumentType::ArchitectureDiagram,
+        "code_docs" => DocumentType::CodeDocs,
+        "api_specs" => DocumentType::APISpecs,
+        "release_notes" => DocumentType::ReleaseNotes,
+        "user_guides" => DocumentType::UserGuides,
+        "runbook" => DocumentType::Runbook,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(SingleDocResponse {
+                    success: false,
+                    doc_type: req.doc_type,
+                    file_path: None,
+                    generation_time_ms: 0,
+                    error: Some("Invalid document type. Use: srs, user_stories, brd, architecture, code_docs, api_specs, release_notes, user_guides, runbook".to_string()),
+                }),
+            );
+        }
+    };
+    
+    // Get or create snapshot
+    let snapshot = if let Some(s) = state.get_snapshot(&req.path).await {
+        s
+    } else {
+        let analyzer = CodebaseAnalyzer::new(&path);
+        match analyzer.analyze().await {
+            Ok(s) => {
+                state.set_snapshot(req.path.clone(), s.clone()).await;
+                s
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(SingleDocResponse {
+                        success: false,
+                        doc_type: req.doc_type,
+                        file_path: None,
+                        generation_time_ms: start.elapsed().as_millis() as u64,
+                        error: Some(format!("Analysis failed: {}", e)),
+                    }),
+                );
+            }
+        }
+    };
+    
+    // Setup output directory
+    let output_path = if req.output.starts_with('/') {
+        PathBuf::from(&req.output)
+    } else {
+        path.join(&req.output)
+    };
+    
+    if let Err(e) = std::fs::create_dir_all(&output_path) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(SingleDocResponse {
+                success: false,
+                doc_type: req.doc_type,
+                file_path: None,
+                generation_time_ms: start.elapsed().as_millis() as u64,
+                error: Some(format!("Failed to create output directory: {}", e)),
+            }),
+        );
+    }
+    
+    // Create LLM provider from environment (using NAFS-4)
+    let llm_provider: std::sync::Arc<dyn nafs_llm::LLMProvider> = {
+        if let Ok(key) = std::env::var("OPENAI_API_KEY") {
+            std::sync::Arc::new(nafs_llm::OpenAIProvider::new(nafs_llm::OpenAIConfig::new(key)))
+        } else if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
+            std::sync::Arc::new(nafs_llm::AnthropicProvider::new(nafs_llm::AnthropicConfig::new(key)))
+        } else if let Ok(key) = std::env::var("COHERE_API_KEY") {
+            std::sync::Arc::new(nafs_llm::CohereProvider::new(nafs_llm::CohereConfig::new(key)))
+        } else if let Ok(key) = std::env::var("TOGETHER_API_KEY") {
+            std::sync::Arc::new(nafs_llm::TogetherProvider::new(nafs_llm::TogetherConfig::new(key)))
+        } else if let Ok(key) = std::env::var("GROQ_API_KEY") {
+            std::sync::Arc::new(nafs_llm::GroqProvider::new(nafs_llm::GroqConfig::new(key)))
+        } else {
+            // Fallback to mock
+            let mock = nafs_llm::MockLLMProvider::new("mock");
+            mock.add_response("Document generation requires an LLM API key. Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, COHERE_API_KEY, TOGETHER_API_KEY, or GROQ_API_KEY.");
+            std::sync::Arc::new(mock)
+        }
+    };
+    
+    // Get project name
+    let project_name = path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Project")
+        .to_string();
+    
+    // Create generator and generate single document
+    let generator = AgenticDocGenerator::new(
+        llm_provider,
+        output_path.clone(),
+        project_name,
+    );
+    
+    // Build context once
+    let context = generator.build_context_summary(&snapshot);
+    
+    // Generate the single document
+    match generator.generate_document(doc_type, &snapshot, &context).await {
+        Ok(file_path) => {
+            info!(path = %file_path.display(), "Document generated successfully");
+            (
+                StatusCode::OK,
+                Json(SingleDocResponse {
+                    success: true,
+                    doc_type: req.doc_type,
+                    file_path: Some(file_path.to_string_lossy().to_string()),
+                    generation_time_ms: start.elapsed().as_millis() as u64,
+                    error: None,
+                }),
+            )
+        }
+        Err(e) => {
+            error!(error = %e, "Single document generation failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(SingleDocResponse {
+                    success: false,
+                    doc_type: req.doc_type,
+                    file_path: None,
+                    generation_time_ms: start.elapsed().as_millis() as u64,
                     error: Some(e.to_string()),
                 }),
             )

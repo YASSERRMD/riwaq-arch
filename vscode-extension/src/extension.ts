@@ -143,23 +143,63 @@ async function generateDocs() {
     const outputPath = 'riwaq-generated-docs';
     const fullOutputPath = path.join(workspacePath, outputPath);
 
+    try {
+        // Get available document types from server
+        const docTypesResult = await client.getDocTypes();
+
+        // Show quick pick for document type selection
+        const items = docTypesResult.docTypes.map(dt => ({
+            label: dt.name,
+            description: dt.id,
+            detail: dt.description,
+            id: dt.id
+        }));
+
+        // Add "All Documents" option at the top
+        items.unshift({
+            label: '📦 Generate All Documents',
+            description: 'all',
+            detail: 'Generate all 9 document types (may take several minutes)',
+            id: 'all'
+        });
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a document type to generate',
+            title: 'Riwaq: Generate Documentation'
+        });
+
+        if (!selected) {
+            return; // User cancelled
+        }
+
+        if (selected.id === 'all') {
+            // Generate all docs (old behavior)
+            await generateAllDocs(workspacePath, fullOutputPath, outputPath);
+        } else {
+            // Generate single document
+            await generateSingleDoc(workspacePath, fullOutputPath, selected.id, selected.label);
+        }
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Riwaq: Failed to get document types - ${error.message}`);
+    }
+}
+
+async function generateAllDocs(workspacePath: string, fullOutputPath: string, outputPath: string) {
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: 'Riwaq: Generating documentation...',
+        title: 'Riwaq: Generating all documentation...',
         cancellable: false
     }, async (progress) => {
         try {
             progress.report({ message: 'Analyzing codebase...' });
 
-            // Ensure we have a snapshot first
             if (!client.hasSnapshot()) {
                 await client.analyze(workspacePath);
             }
 
-            progress.report({ message: 'Generating docs...' });
+            progress.report({ message: 'Generating all docs (this may take a while)...' });
             const result = await client.generateDocs(workspacePath, fullOutputPath);
 
-            // Show success with options
             const selection = await vscode.window.showInformationMessage(
                 `✅ Documentation generated: ${result.fileCount} files in '${outputPath}'`,
                 'Open Folder',
@@ -167,12 +207,48 @@ async function generateDocs() {
             );
 
             if (selection === 'Open Folder') {
-                // Open the folder in VS Code
                 const folderUri = vscode.Uri.file(fullOutputPath);
                 vscode.commands.executeCommand('vscode.openFolder', folderUri, { forceNewWindow: true });
             } else if (selection === 'Open in Explorer') {
-                // Reveal in system file manager
                 vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(fullOutputPath));
+            }
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Riwaq: Doc generation failed - ${error.message}`);
+        }
+    });
+}
+
+async function generateSingleDoc(workspacePath: string, fullOutputPath: string, docType: string, docName: string) {
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Riwaq: Generating ${docName}...`,
+        cancellable: false
+    }, async (progress) => {
+        try {
+            progress.report({ message: 'Analyzing codebase...' });
+
+            if (!client.hasSnapshot()) {
+                await client.analyze(workspacePath);
+            }
+
+            progress.report({ message: `Generating ${docName}...` });
+            const result = await client.generateSingleDoc(workspacePath, fullOutputPath, docType);
+
+            if (result.success && result.filePath) {
+                const selection = await vscode.window.showInformationMessage(
+                    `✅ ${docName} generated in ${Math.round(result.generationTimeMs / 1000)}s`,
+                    'Open Document',
+                    'Open Folder'
+                );
+
+                if (selection === 'Open Document') {
+                    const docUri = vscode.Uri.file(result.filePath);
+                    vscode.commands.executeCommand('markdown.showPreview', docUri);
+                } else if (selection === 'Open Folder') {
+                    vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.filePath));
+                }
+            } else {
+                vscode.window.showErrorMessage(`Riwaq: Failed to generate ${docName} - ${result.error || 'Unknown error'}`);
             }
         } catch (error: any) {
             vscode.window.showErrorMessage(`Riwaq: Doc generation failed - ${error.message}`);

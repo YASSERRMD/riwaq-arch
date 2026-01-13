@@ -27,6 +27,8 @@ pub fn create_router(state: AppState) -> Router {
         
         // Documentation endpoints
         .route("/docgen", post(handlers::generate_docs))
+        .route("/docgen/types", get(handlers::list_doc_types))
+        .route("/docgen/single", post(handlers::generate_single_doc))
         
         // Q&A endpoints
         .route("/ask", post(handlers::ask_question))

@@ -172,8 +172,35 @@ impl AgenticDocGenerator {
         Ok(generated_files)
     }
 
-    /// Build context summary for LLM
-    fn build_context_summary(&self, snapshot: &CodebaseSnapshot) -> String {
+    /// Generate a single document type (public API for on-demand generation)
+    pub async fn generate_document(
+        &self,
+        doc_type: DocumentType,
+        snapshot: &CodebaseSnapshot,
+        context: &str,
+    ) -> Result<PathBuf> {
+        info!("Generating single document: {}", doc_type.title());
+        
+        let content = match doc_type {
+            DocumentType::SRS => self.generate_srs_concurrent(context).await?,
+            DocumentType::UserStories => self.generate_user_stories_concurrent(context).await?,
+            DocumentType::BRD => self.generate_brd_concurrent(context).await?,
+            DocumentType::ArchitectureDiagram => self.generate_architecture_concurrent(context).await?,
+            DocumentType::CodeDocs => self.generate_code_docs_concurrent(context).await?,
+            DocumentType::APISpecs => self.generate_api_specs_concurrent(context).await?,
+            DocumentType::ReleaseNotes => self.generate_release_notes_concurrent(context).await?,
+            DocumentType::UserGuides => self.generate_user_guides_concurrent(context).await?,
+            DocumentType::Runbook => self.generate_runbook_concurrent(context).await?,
+        };
+        
+        let path = self.output_dir.join(doc_type.filename());
+        fs::write(&path, &content)?;
+        info!("Generated: {}", path.display());
+        Ok(path)
+    }
+
+    /// Build context summary for LLM (public for use by handlers)
+    pub fn build_context_summary(&self, snapshot: &CodebaseSnapshot) -> String {
         let stats = &snapshot.statistics;
         let mut summary = format!(
             "Project: {}\nFiles: {}\nModules: {}\nFunctions: {}\nTypes: {}\nLines: {}\n\n",

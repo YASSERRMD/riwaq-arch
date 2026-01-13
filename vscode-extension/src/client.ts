@@ -121,6 +121,24 @@ export interface FileReference {
     relevance: string;
 }
 
+export interface DocTypeInfo {
+    id: string;
+    name: string;
+    description: string;
+}
+
+export interface DocTypesResult {
+    docTypes: DocTypeInfo[];
+}
+
+export interface SingleDocResult {
+    success: boolean;
+    docType: string;
+    filePath?: string;
+    generationTimeMs: number;
+    error?: string;
+}
+
 export class RiwaqClient {
     private client: AxiosInstance;
     private snapshot: CodebaseSnapshot | null = null;
@@ -201,5 +219,21 @@ export class RiwaqClient {
 
     getStatistics(): CodebaseStatistics | null {
         return this.snapshot?.statistics || null;
+    }
+
+    async getDocTypes(): Promise<DocTypesResult> {
+        const response = await this.client.get('/docgen/types');
+        return response.data;
+    }
+
+    async generateSingleDoc(workspacePath: string, outputPath: string, docType: string): Promise<SingleDocResult> {
+        const response = await this.client.post('/docgen/single', {
+            path: workspacePath,
+            output: outputPath,
+            docType: docType
+        }, {
+            timeout: 300000 // 5 minute timeout for single doc generation
+        });
+        return response.data;
     }
 }
