@@ -2,6 +2,7 @@
 //!
 //! This module uses the NAFS-4 framework for multi-step, agentic document generation.
 //! Each document type requires multiple LLM calls to generate comprehensive content.
+//! Uses 2 parallel LLM calls for faster generation.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -11,6 +12,10 @@ use nafs_core::{Agent, Goal, Result as NafsResult};
 use crate::models::snapshot::CodebaseSnapshot;
 use crate::errors::Result;
 use std::fs;
+use tokio::sync::Semaphore;
+
+/// Maximum concurrent LLM calls
+const MAX_CONCURRENT_LLM_CALLS: usize = 2;
 
 /// Document types that can be generated
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,6 +80,7 @@ pub struct AgenticDocGenerator {
     llm_provider: Arc<dyn LLMProvider>,
     output_dir: PathBuf,
     project_name: String,
+    semaphore: Arc<Semaphore>,
 }
 
 impl AgenticDocGenerator {
@@ -88,54 +94,82 @@ impl AgenticDocGenerator {
             llm_provider,
             output_dir,
             project_name,
+            semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_LLM_CALLS)),
         }
     }
 
-    /// Generate all documents
+    /// Generate all documents with 2 parallel document generation
     pub async fn generate_all(&self, snapshot: &CodebaseSnapshot) -> Result<Vec<PathBuf>> {
-        info!("Starting agentic document generation for {} documents", DocumentType::all().len());
+        info!("Starting agentic document generation for {} documents (2 parallel)", DocumentType::all().len());
         
+        let context = Arc::new(self.build_context_summary(snapshot));
+        let doc_types = DocumentType::all();
+        
+        // Process documents in pairs (2 at a time)
         let mut generated_files = Vec::new();
-        let context = self.build_context_summary(snapshot);
-
-        for doc_type in DocumentType::all() {
-            info!("Generating: {}", doc_type.title());
-            match self.generate_document(doc_type, snapshot, &context).await {
-                Ok(path) => {
-                    info!("Successfully generated: {}", path.display());
+        for chunk in doc_types.chunks(2) {
+            let mut handles = Vec::new();
+            
+            for doc_type in chunk {
+                let doc_type = *doc_type;
+                let ctx = Arc::clone(&context);
+                let llm = Arc::clone(&self.llm_provider);
+                let output_dir = self.output_dir.clone();
+                let project_name = self.project_name.clone();
+                let sem = Arc::clone(&self.semaphore);
+                
+                let handle = tokio::spawn(async move {
+                    let _permit = sem.acquire().await.unwrap();
+                    info!("Generating: {}", doc_type.title());
+                    
+                    let gen = AgenticDocGenerator {
+                        llm_provider: llm,
+                        output_dir: output_dir.clone(),
+                        project_name: project_name.clone(),
+                        semaphore: Arc::new(Semaphore::new(2)),
+                    };
+                    
+                    let content = match doc_type {
+                        DocumentType::SRS => gen.generate_srs_concurrent(&ctx).await,
+                        DocumentType::UserStories => gen.generate_user_stories_concurrent(&ctx).await,
+                        DocumentType::BRD => gen.generate_brd_concurrent(&ctx).await,
+                        DocumentType::ArchitectureDiagram => gen.generate_architecture_concurrent(&ctx).await,
+                        DocumentType::CodeDocs => gen.generate_code_docs_concurrent(&ctx).await,
+                        DocumentType::APISpecs => gen.generate_api_specs_concurrent(&ctx).await,
+                        DocumentType::ReleaseNotes => gen.generate_release_notes_concurrent(&ctx).await,
+                        DocumentType::UserGuides => gen.generate_user_guides_concurrent(&ctx).await,
+                        DocumentType::Runbook => gen.generate_runbook_concurrent(&ctx).await,
+                    };
+                    
+                    match content {
+                        Ok(content) => {
+                            let path = output_dir.join(doc_type.filename());
+                            if let Err(e) = fs::write(&path, &content) {
+                                error!("Failed to write {}: {}", doc_type.filename(), e);
+                                None
+                            } else {
+                                info!("Successfully generated: {}", path.display());
+                                Some(path)
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to generate {}: {}", doc_type.title(), e);
+                            None
+                        }
+                    }
+                });
+                handles.push(handle);
+            }
+            
+            // Wait for this batch to complete
+            for handle in handles {
+                if let Ok(Some(path)) = handle.await {
                     generated_files.push(path);
-                }
-                Err(e) => {
-                    error!("Failed to generate {}: {}", doc_type.title(), e);
                 }
             }
         }
 
         Ok(generated_files)
-    }
-
-    /// Generate a single document using multi-step agentic approach
-    pub async fn generate_document(
-        &self,
-        doc_type: DocumentType,
-        snapshot: &CodebaseSnapshot,
-        context: &str,
-    ) -> Result<PathBuf> {
-        let content = match doc_type {
-            DocumentType::SRS => self.generate_srs(snapshot, context).await?,
-            DocumentType::UserStories => self.generate_user_stories(snapshot, context).await?,
-            DocumentType::BRD => self.generate_brd(snapshot, context).await?,
-            DocumentType::ArchitectureDiagram => self.generate_architecture_docs(snapshot, context).await?,
-            DocumentType::CodeDocs => self.generate_code_docs(snapshot, context).await?,
-            DocumentType::APISpecs => self.generate_api_specs(snapshot, context).await?,
-            DocumentType::ReleaseNotes => self.generate_release_notes(snapshot, context).await?,
-            DocumentType::UserGuides => self.generate_user_guides(snapshot, context).await?,
-            DocumentType::Runbook => self.generate_runbook(snapshot, context).await?,
-        };
-
-        let path = self.output_dir.join(doc_type.filename());
-        fs::write(&path, &content)?;
-        Ok(path)
     }
 
     /// Build context summary for LLM
@@ -169,172 +203,105 @@ impl AgenticDocGenerator {
         summary
     }
 
-    /// Multi-step SRS generation
-    async fn generate_srs(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// SRS generation with 2 parallel sections
+    async fn generate_srs_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# Software Requirements Specification\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Executive Summary
-        info!("SRS Step 1/6: Executive Summary");
-        let summary = self.llm_call(&format!(
-            "Based on this codebase analysis, write an executive summary for an SRS document.\n\n{}\n\nWrite 2-3 paragraphs summarizing the software's purpose and scope.",
-            context
-        )).await?;
+        // Batch 1: Executive Summary + Functional Requirements
+        let (summary, functional) = tokio::join!(
+            self.llm_call("Based on this codebase analysis, write an executive summary for an SRS document. Write 2-3 paragraphs summarizing the software's purpose and scope.", context),
+            self.llm_call("Based on this codebase, list the functional requirements. Format as numbered requirements with IDs like FR-001. Provide at least 10 functional requirements.", context)
+        );
         content.push_str("## 1. Executive Summary\n\n");
-        content.push_str(&summary);
+        content.push_str(&summary.unwrap_or_default());
+        content.push_str("\n\n## 2. Functional Requirements\n\n");
+        content.push_str(&functional.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Functional Requirements
-        info!("SRS Step 2/6: Functional Requirements");
-        let functional = self.llm_call(&format!(
-            "Based on this codebase, list the functional requirements. Format as numbered requirements with IDs like FR-001.\n\n{}\n\nProvide at least 10 functional requirements.",
-            context
-        )).await?;
-        content.push_str("## 2. Functional Requirements\n\n");
-        content.push_str(&functional);
-        content.push_str("\n\n");
-
-        // Step 3: Non-Functional Requirements
-        info!("SRS Step 3/6: Non-Functional Requirements");
-        let nonfunctional = self.llm_call(&format!(
-            "Based on this codebase, list non-functional requirements (performance, security, scalability, reliability). Format as NFR-001, NFR-002, etc.\n\n{}\n\nProvide at least 8 non-functional requirements.",
-            context
-        )).await?;
+        // Batch 2: Non-Functional + System Interfaces
+        let (nonfunctional, interfaces) = tokio::join!(
+            self.llm_call("Based on this codebase, list non-functional requirements (performance, security, scalability, reliability). Format as NFR-001, NFR-002, etc. Provide at least 8 non-functional requirements.", context),
+            self.llm_call("Describe the system interfaces (APIs, external integrations, user interfaces) based on this codebase. Provide detailed interface descriptions.", context)
+        );
         content.push_str("## 3. Non-Functional Requirements\n\n");
-        content.push_str(&nonfunctional);
+        content.push_str(&nonfunctional.unwrap_or_default());
+        content.push_str("\n\n## 4. System Interfaces\n\n");
+        content.push_str(&interfaces.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 4: System Interfaces
-        info!("SRS Step 4/6: System Interfaces");
-        let interfaces = self.llm_call(&format!(
-            "Describe the system interfaces (APIs, external integrations, user interfaces) based on this codebase.\n\n{}\n\nProvide detailed interface descriptions.",
-            context
-        )).await?;
-        content.push_str("## 4. System Interfaces\n\n");
-        content.push_str(&interfaces);
-        content.push_str("\n\n");
-
-        // Step 5: Data Requirements
-        info!("SRS Step 5/6: Data Requirements");
-        let data = self.llm_call(&format!(
-            "Describe the data requirements, data models, and data flow based on this codebase.\n\n{}\n\nInclude data entities, relationships, and storage requirements.",
-            context
-        )).await?;
+        // Batch 3: Data Requirements + Constraints
+        let (data, constraints) = tokio::join!(
+            self.llm_call("Describe the data requirements, data models, and data flow based on this codebase. Include data entities, relationships, and storage requirements.", context),
+            self.llm_call("List the constraints, assumptions, and dependencies for this software system. Provide concrete constraints and assumptions.", context)
+        );
         content.push_str("## 5. Data Requirements\n\n");
-        content.push_str(&data);
-        content.push_str("\n\n");
-
-        // Step 6: Constraints & Assumptions
-        info!("SRS Step 6/6: Constraints & Assumptions");
-        let constraints = self.llm_call(&format!(
-            "List the constraints, assumptions, and dependencies for this software system.\n\n{}\n\nProvide concrete constraints and assumptions.",
-            context
-        )).await?;
-        content.push_str("## 6. Constraints and Assumptions\n\n");
-        content.push_str(&constraints);
+        content.push_str(&data.unwrap_or_default());
+        content.push_str("\n\n## 6. Constraints and Assumptions\n\n");
+        content.push_str(&constraints.unwrap_or_default());
         content.push_str("\n\n");
 
         content.push_str(&format!("\n---\n*Generated by Riwaq Arch on {}*\n", chrono::Local::now().format("%Y-%m-%d")));
         Ok(content)
     }
 
-    /// Multi-step User Stories generation
-    async fn generate_user_stories(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// User Stories with 2 parallel sections
+    async fn generate_user_stories_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# User Stories\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Identify Personas
-        info!("User Stories Step 1/4: Identifying Personas");
-        let personas = self.llm_call(&format!(
-            "Based on this codebase, identify the user personas/actors who would use this system. Provide 3-5 personas with descriptions.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Personas + Epics
+        let (personas, epics) = tokio::join!(
+            self.llm_call("Based on this codebase, identify the user personas/actors who would use this system. Provide 3-5 personas with descriptions.", context),
+            self.llm_call("Based on this codebase, create epic-level user stories. Format: As a [persona], I want [goal] so that [benefit]. Create 5-8 epics.", context)
+        );
         content.push_str("## User Personas\n\n");
-        content.push_str(&personas);
+        content.push_str(&personas.unwrap_or_default());
+        content.push_str("\n\n## Epic Stories\n\n");
+        content.push_str(&epics.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Epic Stories
-        info!("User Stories Step 2/4: Epic Stories");
-        let epics = self.llm_call(&format!(
-            "Based on this codebase, create epic-level user stories. Format: As a [persona], I want [goal] so that [benefit]. Create 5-8 epics.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Epic Stories\n\n");
-        content.push_str(&epics);
-        content.push_str("\n\n");
-
-        // Step 3: Detailed Stories
-        info!("User Stories Step 3/4: Detailed Stories");
-        let stories = self.llm_call(&format!(
-            "Create detailed user stories with acceptance criteria. Format each story with ID (US-001), story statement, and acceptance criteria. Create 10-15 stories.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Detailed Stories + Story Map
+        let (stories, map) = tokio::join!(
+            self.llm_call("Create detailed user stories with acceptance criteria. Format each story with ID (US-001), story statement, and acceptance criteria. Create 10-15 stories.", context),
+            self.llm_call("Create a story map organizing the user stories by user journey phases. Show the flow from discovery to completion.", context)
+        );
         content.push_str("## Detailed User Stories\n\n");
-        content.push_str(&stories);
-        content.push_str("\n\n");
-
-        // Step 4: Story Map
-        info!("User Stories Step 4/4: Story Map");
-        let map = self.llm_call(&format!(
-            "Create a story map organizing the user stories by user journey phases. Show the flow from discovery to completion.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Story Map\n\n");
-        content.push_str(&map);
+        content.push_str(&stories.unwrap_or_default());
+        content.push_str("\n\n## Story Map\n\n");
+        content.push_str(&map.unwrap_or_default());
         content.push_str("\n\n");
 
         content.push_str(&format!("\n---\n*Generated by Riwaq Arch on {}*\n", chrono::Local::now().format("%Y-%m-%d")));
         Ok(content)
     }
 
-    /// Multi-step BRD generation
-    async fn generate_brd(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// BRD with 2 parallel sections
+    async fn generate_brd_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# Business Requirements Document\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Business Overview
-        info!("BRD Step 1/5: Business Overview");
-        let overview = self.llm_call(&format!(
-            "Write a business overview section for this software project. Include business context, objectives, and value proposition.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Overview + Objectives
+        let (overview, objectives) = tokio::join!(
+            self.llm_call("Write a business overview section for this software project. Include business context, objectives, and value proposition.", context),
+            self.llm_call("Define SMART business objectives for this project. Include measurable goals and success criteria.", context)
+        );
         content.push_str("## 1. Business Overview\n\n");
-        content.push_str(&overview);
+        content.push_str(&overview.unwrap_or_default());
+        content.push_str("\n\n## 2. Business Objectives\n\n");
+        content.push_str(&objectives.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Business Objectives
-        info!("BRD Step 2/5: Business Objectives");
-        let objectives = self.llm_call(&format!(
-            "Define SMART business objectives for this project. Include measurable goals and success criteria.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## 2. Business Objectives\n\n");
-        content.push_str(&objectives);
-        content.push_str("\n\n");
-
-        // Step 3: Stakeholder Analysis
-        info!("BRD Step 3/5: Stakeholder Analysis");
-        let stakeholders = self.llm_call(&format!(
-            "Identify stakeholders for this project. Include their interests, influence, and engagement strategy.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Stakeholders + Requirements
+        let (stakeholders, requirements) = tokio::join!(
+            self.llm_call("Identify stakeholders for this project. Include their interests, influence, and engagement strategy.", context),
+            self.llm_call("List business requirements with IDs (BR-001). Include priority (High/Medium/Low) and rationale.", context)
+        );
         content.push_str("## 3. Stakeholder Analysis\n\n");
-        content.push_str(&stakeholders);
+        content.push_str(&stakeholders.unwrap_or_default());
+        content.push_str("\n\n## 4. Business Requirements\n\n");
+        content.push_str(&requirements.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 4: Business Requirements
-        info!("BRD Step 4/5: Business Requirements");
-        let requirements = self.llm_call(&format!(
-            "List business requirements with IDs (BR-001). Include priority (High/Medium/Low) and rationale.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## 4. Business Requirements\n\n");
-        content.push_str(&requirements);
-        content.push_str("\n\n");
-
-        // Step 5: ROI & Business Case
-        info!("BRD Step 5/5: ROI & Business Case");
-        let roi = self.llm_call(&format!(
-            "Create a business case section including expected benefits, costs considerations, and ROI analysis framework.\n\n{}",
-            context
-        )).await?;
+        // Batch 3: ROI (single)
+        let roi = self.llm_call("Create a business case section including expected benefits, costs considerations, and ROI analysis framework.", context).await?;
         content.push_str("## 5. Business Case & ROI\n\n");
         content.push_str(&roi);
         content.push_str("\n\n");
@@ -343,56 +310,34 @@ impl AgenticDocGenerator {
         Ok(content)
     }
 
-    /// Architecture documentation with diagrams
-    async fn generate_architecture_docs(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// Architecture docs with 2 parallel sections
+    async fn generate_architecture_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# Architecture Documentation\n\n## {}\n\n", self.project_name);
 
-        // Step 1: System Overview
-        info!("Architecture Step 1/5: System Overview");
-        let overview = self.llm_call(&format!(
-            "Write a system architecture overview. Describe the high-level design, architectural style, and key components.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Overview + Components
+        let (overview, components) = tokio::join!(
+            self.llm_call("Write a system architecture overview. Describe the high-level design, architectural style, and key components.", context),
+            self.llm_call("Describe the component architecture. List each major component, its responsibility, and interfaces.", context)
+        );
         content.push_str("## 1. System Overview\n\n");
-        content.push_str(&overview);
+        content.push_str(&overview.unwrap_or_default());
+        content.push_str("\n\n## 2. Component Architecture\n\n");
+        content.push_str(&components.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Component Architecture
-        info!("Architecture Step 2/5: Component Architecture");
-        let components = self.llm_call(&format!(
-            "Describe the component architecture. List each major component, its responsibility, and interfaces.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## 2. Component Architecture\n\n");
-        content.push_str(&components);
-        content.push_str("\n\n");
-
-        // Step 3: Data Architecture
-        info!("Architecture Step 3/5: Data Architecture");
-        let data = self.llm_call(&format!(
-            "Describe the data architecture including data stores, data flow, and data models.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Data + Integration
+        let (data, integration) = tokio::join!(
+            self.llm_call("Describe the data architecture including data stores, data flow, and data models.", context),
+            self.llm_call("Describe how components integrate with each other and external systems. Include APIs, messaging, etc.", context)
+        );
         content.push_str("## 3. Data Architecture\n\n");
-        content.push_str(&data);
+        content.push_str(&data.unwrap_or_default());
+        content.push_str("\n\n## 4. Integration Architecture\n\n");
+        content.push_str(&integration.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 4: Integration Architecture
-        info!("Architecture Step 4/5: Integration Architecture");
-        let integration = self.llm_call(&format!(
-            "Describe how components integrate with each other and external systems. Include APIs, messaging, etc.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## 4. Integration Architecture\n\n");
-        content.push_str(&integration);
-        content.push_str("\n\n");
-
-        // Step 5: Deployment Architecture
-        info!("Architecture Step 5/5: Deployment Architecture");
-        let deployment = self.llm_call(&format!(
-            "Describe the deployment architecture including infrastructure, scaling, and availability.\n\n{}",
-            context
-        )).await?;
+        // Batch 3: Deployment (single)
+        let deployment = self.llm_call("Describe the deployment architecture including infrastructure, scaling, and availability.", context).await?;
         content.push_str("## 5. Deployment Architecture\n\n");
         content.push_str(&deployment);
         content.push_str("\n\n");
@@ -401,132 +346,83 @@ impl AgenticDocGenerator {
         Ok(content)
     }
 
-    /// Code documentation
-    async fn generate_code_docs(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// Code docs with 2 parallel sections
+    async fn generate_code_docs_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# Code Documentation\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Getting Started
-        info!("Code Docs Step 1/4: Getting Started");
-        let getting_started = self.llm_call(&format!(
-            "Write a getting started guide for developers. Include setup, prerequisites, and first steps.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Getting Started + Modules
+        let (getting_started, modules) = tokio::join!(
+            self.llm_call("Write a getting started guide for developers. Include setup, prerequisites, and first steps.", context),
+            self.llm_call("Document each major module. Include purpose, public interfaces, and usage examples.", context)
+        );
         content.push_str("## Getting Started\n\n");
-        content.push_str(&getting_started);
+        content.push_str(&getting_started.unwrap_or_default());
+        content.push_str("\n\n## Module Documentation\n\n");
+        content.push_str(&modules.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Module Documentation
-        info!("Code Docs Step 2/4: Module Documentation");
-        let modules = self.llm_call(&format!(
-            "Document each major module. Include purpose, public interfaces, and usage examples.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Module Documentation\n\n");
-        content.push_str(&modules);
-        content.push_str("\n\n");
-
-        // Step 3: Code Patterns
-        info!("Code Docs Step 3/4: Code Patterns");
-        let patterns = self.llm_call(&format!(
-            "Document the coding patterns and conventions used in this codebase. Include examples.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Patterns + Testing
+        let (patterns, testing) = tokio::join!(
+            self.llm_call("Document the coding patterns and conventions used in this codebase. Include examples.", context),
+            self.llm_call("Write a testing guide. Include how to run tests, write new tests, and testing best practices.", context)
+        );
         content.push_str("## Coding Patterns & Conventions\n\n");
-        content.push_str(&patterns);
-        content.push_str("\n\n");
-
-        // Step 4: Testing Guide
-        info!("Code Docs Step 4/4: Testing Guide");
-        let testing = self.llm_call(&format!(
-            "Write a testing guide. Include how to run tests, write new tests, and testing best practices.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Testing Guide\n\n");
-        content.push_str(&testing);
+        content.push_str(&patterns.unwrap_or_default());
+        content.push_str("\n\n## Testing Guide\n\n");
+        content.push_str(&testing.unwrap_or_default());
         content.push_str("\n\n");
 
         content.push_str(&format!("\n---\n*Generated by Riwaq Arch on {}*\n", chrono::Local::now().format("%Y-%m-%d")));
         Ok(content)
     }
 
-    /// API Specifications
-    async fn generate_api_specs(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// API specs with 2 parallel sections
+    async fn generate_api_specs_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# API Specifications\n\n## {}\n\n", self.project_name);
 
-        // Step 1: API Overview
-        info!("API Specs Step 1/4: API Overview");
-        let overview = self.llm_call(&format!(
-            "Write an API overview including authentication, base URLs, versioning, and general conventions.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Overview + REST
+        let (overview, rest) = tokio::join!(
+            self.llm_call("Write an API overview including authentication, base URLs, versioning, and general conventions.", context),
+            self.llm_call("Document REST API endpoints. Include method, path, request/response schemas, and examples.", context)
+        );
         content.push_str("## API Overview\n\n");
-        content.push_str(&overview);
+        content.push_str(&overview.unwrap_or_default());
+        content.push_str("\n\n## REST API Endpoints\n\n");
+        content.push_str(&rest.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: REST Endpoints
-        info!("API Specs Step 2/4: REST Endpoints");
-        let rest = self.llm_call(&format!(
-            "Document REST API endpoints. Include method, path, request/response schemas, and examples.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## REST API Endpoints\n\n");
-        content.push_str(&rest);
-        content.push_str("\n\n");
-
-        // Step 3: gRPC/GraphQL if applicable
-        info!("API Specs Step 3/4: gRPC/GraphQL");
-        let other = self.llm_call(&format!(
-            "Document any gRPC services or GraphQL schemas if present in the codebase. If not present, note that.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Other APIs + Errors
+        let (other, errors) = tokio::join!(
+            self.llm_call("Document any gRPC services or GraphQL schemas if present in the codebase. If not present, note that.", context),
+            self.llm_call("Document API error handling including error codes, error response format, and troubleshooting.", context)
+        );
         content.push_str("## Other API Interfaces\n\n");
-        content.push_str(&other);
-        content.push_str("\n\n");
-
-        // Step 4: Error Handling
-        info!("API Specs Step 4/4: Error Handling");
-        let errors = self.llm_call(&format!(
-            "Document API error handling including error codes, error response format, and troubleshooting.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Error Handling\n\n");
-        content.push_str(&errors);
+        content.push_str(&other.unwrap_or_default());
+        content.push_str("\n\n## Error Handling\n\n");
+        content.push_str(&errors.unwrap_or_default());
         content.push_str("\n\n");
 
         content.push_str(&format!("\n---\n*Generated by Riwaq Arch on {}*\n", chrono::Local::now().format("%Y-%m-%d")));
         Ok(content)
     }
 
-    /// Release Notes
-    async fn generate_release_notes(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// Release notes with parallel sections
+    async fn generate_release_notes_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# Release Notes\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Current Release
-        info!("Release Notes Step 1/3: Current Release");
-        let current = self.llm_call(&format!(
-            "Based on the codebase, write release notes for what appears to be the current version. Include new features, improvements, and bug fixes.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Current + Breaking (2 parallel)
+        let (current, breaking) = tokio::join!(
+            self.llm_call("Based on the codebase, write release notes for what appears to be the current version. Include new features, improvements, and bug fixes.", context),
+            self.llm_call("Identify any potential breaking changes based on the codebase architecture. Include migration guides.", context)
+        );
         content.push_str("## Current Release\n\n");
-        content.push_str(&current);
+        content.push_str(&current.unwrap_or_default());
+        content.push_str("\n\n## Breaking Changes\n\n");
+        content.push_str(&breaking.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Breaking Changes
-        info!("Release Notes Step 2/3: Breaking Changes");
-        let breaking = self.llm_call(&format!(
-            "Identify any potential breaking changes based on the codebase architecture. Include migration guides.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Breaking Changes\n\n");
-        content.push_str(&breaking);
-        content.push_str("\n\n");
-
-        // Step 3: Deprecations & Future
-        info!("Release Notes Step 3/3: Roadmap");
-        let future = self.llm_call(&format!(
-            "Suggest deprecations and future improvements based on the codebase analysis.\n\n{}",
-            context
-        )).await?;
+        // Single: Roadmap
+        let future = self.llm_call("Suggest deprecations and future improvements based on the codebase analysis.", context).await?;
         content.push_str("## Deprecations & Future Roadmap\n\n");
         content.push_str(&future);
         content.push_str("\n\n");
@@ -535,104 +431,64 @@ impl AgenticDocGenerator {
         Ok(content)
     }
 
-    /// User Guides
-    async fn generate_user_guides(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// User guides with 2 parallel sections
+    async fn generate_user_guides_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# User Guides\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Quick Start
-        info!("User Guides Step 1/4: Quick Start");
-        let quickstart = self.llm_call(&format!(
-            "Write a quick start guide for end users. Keep it simple and focused on getting started in 5 minutes.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Quick Start + Features
+        let (quickstart, features) = tokio::join!(
+            self.llm_call("Write a quick start guide for end users. Keep it simple and focused on getting started in 5 minutes.", context),
+            self.llm_call("Write a comprehensive features guide explaining each major feature and how to use it.", context)
+        );
         content.push_str("## Quick Start Guide\n\n");
-        content.push_str(&quickstart);
+        content.push_str(&quickstart.unwrap_or_default());
+        content.push_str("\n\n## Features Guide\n\n");
+        content.push_str(&features.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Features Guide
-        info!("User Guides Step 2/4: Features Guide");
-        let features = self.llm_call(&format!(
-            "Write a comprehensive features guide explaining each major feature and how to use it.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Features Guide\n\n");
-        content.push_str(&features);
-        content.push_str("\n\n");
-
-        // Step 3: Troubleshooting
-        info!("User Guides Step 3/4: Troubleshooting");
-        let troubleshooting = self.llm_call(&format!(
-            "Write a troubleshooting guide with common issues and their solutions.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Troubleshooting + FAQ
+        let (troubleshooting, faq) = tokio::join!(
+            self.llm_call("Write a troubleshooting guide with common issues and their solutions.", context),
+            self.llm_call("Write a FAQ section with 10-15 frequently asked questions and answers.", context)
+        );
         content.push_str("## Troubleshooting\n\n");
-        content.push_str(&troubleshooting);
-        content.push_str("\n\n");
-
-        // Step 4: FAQ
-        info!("User Guides Step 4/4: FAQ");
-        let faq = self.llm_call(&format!(
-            "Write a FAQ section with 10-15 frequently asked questions and answers.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## FAQ\n\n");
-        content.push_str(&faq);
+        content.push_str(&troubleshooting.unwrap_or_default());
+        content.push_str("\n\n## FAQ\n\n");
+        content.push_str(&faq.unwrap_or_default());
         content.push_str("\n\n");
 
         content.push_str(&format!("\n---\n*Generated by Riwaq Arch on {}*\n", chrono::Local::now().format("%Y-%m-%d")));
         Ok(content)
     }
 
-    /// Operations Runbook
-    async fn generate_runbook(&self, snapshot: &CodebaseSnapshot, context: &str) -> Result<String> {
+    /// Runbook with 2 parallel sections
+    async fn generate_runbook_concurrent(&self, context: &str) -> Result<String> {
         let mut content = format!("# Operations Runbook\n\n## {}\n\n", self.project_name);
 
-        // Step 1: Deployment Procedures
-        info!("Runbook Step 1/5: Deployment");
-        let deployment = self.llm_call(&format!(
-            "Write deployment procedures including step-by-step deployment, rollback procedures, and verification steps.\n\n{}",
-            context
-        )).await?;
+        // Batch 1: Deployment + Monitoring
+        let (deployment, monitoring) = tokio::join!(
+            self.llm_call("Write deployment procedures including step-by-step deployment, rollback procedures, and verification steps.", context),
+            self.llm_call("Write monitoring and alerting guidelines. Include key metrics, dashboards, and alert thresholds.", context)
+        );
         content.push_str("## Deployment Procedures\n\n");
-        content.push_str(&deployment);
+        content.push_str(&deployment.unwrap_or_default());
+        content.push_str("\n\n## Monitoring & Alerting\n\n");
+        content.push_str(&monitoring.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 2: Monitoring & Alerting
-        info!("Runbook Step 2/5: Monitoring");
-        let monitoring = self.llm_call(&format!(
-            "Write monitoring and alerting guidelines. Include key metrics, dashboards, and alert thresholds.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Monitoring & Alerting\n\n");
-        content.push_str(&monitoring);
-        content.push_str("\n\n");
-
-        // Step 3: Incident Response
-        info!("Runbook Step 3/5: Incident Response");
-        let incidents = self.llm_call(&format!(
-            "Write incident response procedures. Include severity levels, escalation paths, and remediation steps.\n\n{}",
-            context
-        )).await?;
+        // Batch 2: Incidents + Backup
+        let (incidents, backup) = tokio::join!(
+            self.llm_call("Write incident response procedures. Include severity levels, escalation paths, and remediation steps.", context),
+            self.llm_call("Write backup and disaster recovery procedures. Include RTO, RPO, and recovery steps.", context)
+        );
         content.push_str("## Incident Response\n\n");
-        content.push_str(&incidents);
+        content.push_str(&incidents.unwrap_or_default());
+        content.push_str("\n\n## Backup & Disaster Recovery\n\n");
+        content.push_str(&backup.unwrap_or_default());
         content.push_str("\n\n");
 
-        // Step 4: Backup & Recovery
-        info!("Runbook Step 4/5: Backup & Recovery");
-        let backup = self.llm_call(&format!(
-            "Write backup and disaster recovery procedures. Include RTO, RPO, and recovery steps.\n\n{}",
-            context
-        )).await?;
-        content.push_str("## Backup & Disaster Recovery\n\n");
-        content.push_str(&backup);
-        content.push_str("\n\n");
-
-        // Step 5: Maintenance Tasks
-        info!("Runbook Step 5/5: Maintenance");
-        let maintenance = self.llm_call(&format!(
-            "Document routine maintenance tasks including health checks, log rotation, and performance tuning.\n\n{}",
-            context
-        )).await?;
+        // Single: Maintenance
+        let maintenance = self.llm_call("Document routine maintenance tasks including health checks, log rotation, and performance tuning.", context).await?;
         content.push_str("## Routine Maintenance\n\n");
         content.push_str(&maintenance);
         content.push_str("\n\n");
@@ -642,10 +498,11 @@ impl AgenticDocGenerator {
     }
 
     /// Make an LLM call using NAFS-4
-    async fn llm_call(&self, prompt: &str) -> Result<String> {
+    async fn llm_call(&self, prompt: &str, context: &str) -> Result<String> {
+        let full_prompt = format!("{}\n\nCodebase Context:\n{}", prompt, context);
         let messages = vec![
             ChatMessage::system("You are an expert technical writer creating professional software documentation. Be concise but comprehensive. Use proper markdown formatting."),
-            ChatMessage::user(prompt),
+            ChatMessage::user(&full_prompt),
         ];
 
         let config = ChatConfig::default()
