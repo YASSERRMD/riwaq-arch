@@ -436,35 +436,14 @@ pub async fn generate_single_doc(
         );
     }
     
-    // Create LLM provider from environment (using NAFS-4)
-    let llm_provider: std::sync::Arc<dyn nafs_llm::LLMProvider> = {
-        if let Ok(key) = std::env::var("OPENAI_API_KEY") {
-            std::sync::Arc::new(nafs_llm::OpenAIProvider::new(nafs_llm::OpenAIConfig::new(key)))
-        } else if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
-            std::sync::Arc::new(nafs_llm::AnthropicProvider::new(nafs_llm::AnthropicConfig::new(key)))
-        } else if let Ok(key) = std::env::var("COHERE_API_KEY") {
-            std::sync::Arc::new(nafs_llm::CohereProvider::new(nafs_llm::CohereConfig::new(key)))
-        } else if let Ok(key) = std::env::var("TOGETHER_API_KEY") {
-            std::sync::Arc::new(nafs_llm::TogetherProvider::new(nafs_llm::TogetherConfig::new(key)))
-        } else if let Ok(key) = std::env::var("GROQ_API_KEY") {
-            std::sync::Arc::new(nafs_llm::GroqProvider::new(nafs_llm::GroqConfig::new(key)))
-        } else {
-            // Fallback to mock
-            let mock = nafs_llm::MockLLMProvider::new("mock");
-            mock.add_response("Document generation requires an LLM API key. Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, COHERE_API_KEY, TOGETHER_API_KEY, or GROQ_API_KEY.");
-            std::sync::Arc::new(mock)
-        }
-    };
-    
     // Get project name
     let project_name = path.file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("Project")
         .to_string();
     
-    // Create generator and generate single document
+    // Create generator using internal HttpLlmClient with RIWAQ_LLM_API_KEY
     let generator = AgenticDocGenerator::new(
-        llm_provider,
         output_path.clone(),
         project_name,
     );
