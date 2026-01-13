@@ -15,8 +15,11 @@ pub mod markdown;
 pub mod mermaid;
 pub mod api_reference;
 pub mod business_model;
+pub mod agentic_generator;
 
 pub use generator::{DocGenerator, DocGeneratorConfig, GeneratedDocs};
 pub use api_reference::ApiReferenceGenerator;
 pub use business_model::BusinessModelGenerator;
+pub use agentic_generator::{AgenticDocGenerator, DocumentType};
+
 

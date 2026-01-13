@@ -74,6 +74,11 @@ regex = "1.12.2"
 mermaid-rs = "0.1.1"
 resvg = { version = "0.46.0", features = ["text"] }
 
+# NAFS-4 Agentic Framework
+nafs-core = { git = "https://github.com/YASSERRMD/nafs-4.git", branch = "main" }
+nafs-llm = { git = "https://github.com/YASSERRMD/nafs-4.git", branch = "main" }
+nafs-orchestrator = { git = "https://github.com/YASSERRMD/nafs-4.git", branch = "main" }
+
 # Semantic search (TODO: add in Phase 2)
 # tantivy = "0.22"  # Will be added when semantic search is implemented
 
