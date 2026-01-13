@@ -306,59 +306,48 @@ pub async fn list_doc_types() -> impl IntoResponse {
         DocTypeInfo {
             id: "srs".to_string(),
             name: "Software Requirements Specification".to_string(),
-            description: "Functional and non-functional requirements, system interfaces, data requirements".to_string(),
-        },
-        DocTypeInfo {
-            id: "user_stories".to_string(),
-            name: "User Stories".to_string(),
-            description: "User personas, epics, detailed stories with acceptance criteria".to_string(),
+            description: "LLM-generated SRS with functional/non-functional requirements".to_string(),
         },
         DocTypeInfo {
             id: "brd".to_string(),
             name: "Business Requirements Document".to_string(),
-            description: "Business overview, objectives, stakeholders, ROI analysis".to_string(),
+            description: "LLM-generated BRD with business context and objectives".to_string(),
         },
         DocTypeInfo {
             id: "architecture".to_string(),
-            name: "Architecture Documentation".to_string(),
-            description: "System overview, components, data, integration, deployment architecture".to_string(),
-        },
-        DocTypeInfo {
-            id: "code_docs".to_string(),
-            name: "Code Documentation".to_string(),
-            description: "Getting started, module docs, coding patterns, testing guide".to_string(),
+            name: "Architecture Overview".to_string(),
+            description: "System architecture with diagrams and module overview".to_string(),
         },
         DocTypeInfo {
             id: "api_specs".to_string(),
-            name: "API Specifications".to_string(),
-            description: "API overview, REST endpoints, gRPC/GraphQL, error handling".to_string(),
+            name: "API Reference".to_string(),
+            description: "API documentation for HTTP, gRPC, and service endpoints".to_string(),
         },
         DocTypeInfo {
-            id: "release_notes".to_string(),
-            name: "Release Notes".to_string(),
-            description: "Current release features, breaking changes, roadmap".to_string(),
+            id: "code_docs".to_string(),
+            name: "Modules & Services".to_string(),
+            description: "Detailed documentation for each module and service".to_string(),
         },
         DocTypeInfo {
-            id: "user_guides".to_string(),
-            name: "User Guides".to_string(),
-            description: "Quick start, features guide, troubleshooting, FAQ".to_string(),
+            id: "dependencies".to_string(),
+            name: "Dependencies Report".to_string(),
+            description: "Dependency analysis with risk assessment".to_string(),
         },
         DocTypeInfo {
-            id: "runbook".to_string(),
-            name: "Operations Runbook".to_string(),
-            description: "Deployment, monitoring, incident response, backup, maintenance".to_string(),
+            id: "index".to_string(),
+            name: "Documentation Index".to_string(),
+            description: "Main README with links to all documentation".to_string(),
         },
     ];
     
     (StatusCode::OK, Json(DocTypesResponse { doc_types }))
 }
 
-/// Generate a single document type.
+/// Generate a single document type using the ORIGINAL working DocGenerator.
 pub async fn generate_single_doc(
     State(state): State<AppState>,
     Json(req): Json<SingleDocRequest>,
 ) -> impl IntoResponse {
-    use crate::docs::{AgenticDocGenerator, DocumentType};
     use std::time::Instant;
     
     info!(path = %req.path, doc_type = %req.doc_type, "Generating single document");
@@ -366,30 +355,20 @@ pub async fn generate_single_doc(
     let start = Instant::now();
     let path = PathBuf::from(&req.path);
     
-    // Parse document type
-    let doc_type = match req.doc_type.as_str() {
-        "srs" => DocumentType::SRS,
-        "user_stories" => DocumentType::UserStories,
-        "brd" => DocumentType::BRD,
-        "architecture" => DocumentType::ArchitectureDiagram,
-        "code_docs" => DocumentType::CodeDocs,
-        "api_specs" => DocumentType::APISpecs,
-        "release_notes" => DocumentType::ReleaseNotes,
-        "user_guides" => DocumentType::UserGuides,
-        "runbook" => DocumentType::Runbook,
-        _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(SingleDocResponse {
-                    success: false,
-                    doc_type: req.doc_type,
-                    file_path: None,
-                    generation_time_ms: 0,
-                    error: Some("Invalid document type. Use: srs, user_stories, brd, architecture, code_docs, api_specs, release_notes, user_guides, runbook".to_string()),
-                }),
-            );
-        }
-    };
+    // Validate document type
+    let valid_types = ["srs", "brd", "architecture", "api_specs", "code_docs", "dependencies", "index"];
+    if !valid_types.contains(&req.doc_type.as_str()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(SingleDocResponse {
+                success: false,
+                doc_type: req.doc_type,
+                file_path: None,
+                generation_time_ms: 0,
+                error: Some(format!("Invalid document type. Use one of: {}", valid_types.join(", "))),
+            }),
+        );
+    }
     
     // Get or create snapshot
     let snapshot = if let Some(s) = state.get_snapshot(&req.path).await {
@@ -459,26 +438,23 @@ pub async fn generate_single_doc(
         }
     };
     
-    // Create generator using the same LLM client as chat
-    let generator = AgenticDocGenerator::with_client(
-        std::sync::Arc::new(llm_client),
-        output_path.clone(),
-        project_name,
-    );
+    // Use the ORIGINAL working DocGenerator (single LLM call per document)
+    let config = DocGeneratorConfig::new(&output_path)
+        .with_llm(true)
+        .with_project_name(&project_name);
     
-    // Build context once
-    let context = generator.build_context_summary(&snapshot);
+    let generator = DocGenerator::with_client(config, Box::new(llm_client));
     
-    // Generate the single document
-    match generator.generate_document(doc_type, &snapshot, &context).await {
-        Ok(file_path) => {
-            info!(path = %file_path.display(), "Document generated successfully");
+    // Generate single document using the original working method
+    match generator.generate_single(&snapshot, &req.doc_type).await {
+        Ok(generated_file) => {
+            info!(path = %generated_file.path.display(), "Document generated successfully");
             (
                 StatusCode::OK,
                 Json(SingleDocResponse {
                     success: true,
                     doc_type: req.doc_type,
-                    file_path: Some(file_path.to_string_lossy().to_string()),
+                    file_path: Some(generated_file.path.to_string_lossy().to_string()),
                     generation_time_ms: start.elapsed().as_millis() as u64,
                     error: None,
                 }),

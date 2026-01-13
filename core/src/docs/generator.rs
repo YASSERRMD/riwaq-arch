@@ -158,6 +158,33 @@ impl DocGenerator {
         
         Self { config, llm_client }
     }
+    
+    /// Create with an external LLM client (use when you have a configured client)
+    pub fn with_client(config: DocGeneratorConfig, llm_client: Box<dyn crate::llm::LLMClient>) -> Self {
+        Self { config, llm_client }
+    }
+    
+    /// Generate a single document type
+    pub async fn generate_single(&self, snapshot: &CodebaseSnapshot, doc_type: &str) -> Result<GeneratedFile> {
+        // Create output directory
+        fs::create_dir_all(&self.config.output_dir)?;
+        
+        let project_name = self.config.project_name.clone()
+            .unwrap_or_else(|| snapshot.metadata.project_name.clone());
+        
+        match doc_type {
+            "srs" => self.generate_srs(snapshot, &project_name).await,
+            "brd" => self.generate_brd(snapshot, &project_name).await,
+            "architecture" => self.generate_architecture_overview(snapshot, &project_name).await,
+            "api_specs" => self.generate_api_reference(snapshot).await,
+            "code_docs" | "modules" => self.generate_modules_doc(snapshot),
+            "dependencies" => self.generate_dependency_report(snapshot),
+            "index" | "readme" => self.generate_index(snapshot, &project_name),
+            _ => Err(crate::errors::RiwaqError::Internal(
+                format!("Unknown document type: {}. Use: srs, brd, architecture, api_specs, code_docs, dependencies, index", doc_type)
+            ))
+        }
+    }
 
     /// Generate all documentation from a snapshot.
     pub async fn generate(&self, snapshot: &CodebaseSnapshot) -> Result<GeneratedDocs> {
