@@ -550,35 +550,46 @@ impl DocGenerator {
         }).to_string()
     }
 
-    /// Generate API reference.
     /// Generate BRD using LLM.
     async fn generate_brd(&self, snapshot: &CodebaseSnapshot, project_name: &str) -> Result<GeneratedFile> {
+        info!("Generating Business Requirements Document...");
         let content = if self.config.use_llm {
             let context = crate::llm::prompts::truncate_context(&self.generate_context_summary(snapshot), 12000);
             let prompt = crate::llm::prompts::generate_brd_prompt(project_name, &context);
-            if let Ok(res) = self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
-                self.process_embedded_diagrams(&res.content, "brd")
-            } else {
-                 "# Business Requirements\n\n(LLM generation failed)".to_string()
+            match self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
+                Ok(res) => {
+                    info!("BRD LLM response received, processing diagrams...");
+                    self.process_embedded_diagrams(&res.content, "brd")
+                }
+                Err(e) => {
+                    warn!("BRD LLM generation failed: {}", e);
+                    format!("# Business Requirements Document\n\n## {}\n\n(LLM generation failed: {})\n\n## Fallback Content\n\nThis document should contain the business requirements for the project.", project_name, e)
+                }
             }
         } else {
-            "# Business Requirements\n\n(LLM disabled)".to_string()
+            format!("# Business Requirements Document\n\n## {}\n\n(LLM is disabled. Enable LLM in settings to generate AI-powered BRD.)", project_name)
         };
         self.write_file("BUSINESS_REQUIREMENTS.md", &content, DocType::BusinessRequirements)
     }
 
     /// Generate SRS using LLM.
     async fn generate_srs(&self, snapshot: &CodebaseSnapshot, project_name: &str) -> Result<GeneratedFile> {
+        info!("Generating Software Requirements Specification...");
         let content = if self.config.use_llm {
             let context = crate::llm::prompts::truncate_context(&self.generate_context_summary(snapshot), 12000);
             let prompt = crate::llm::prompts::generate_srs_prompt(project_name, &context);
-             if let Ok(res) = self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
-                self.process_embedded_diagrams(&res.content, "srs")
-            } else {
-                 "# Software Requirements\n\n(LLM generation failed)".to_string()
+            match self.llm_client.complete(&prompt, Some(crate::llm::prompts::SYSTEM_PROMPT)).await {
+                Ok(res) => {
+                    info!("SRS LLM response received, processing diagrams...");
+                    self.process_embedded_diagrams(&res.content, "srs")
+                }
+                Err(e) => {
+                    warn!("SRS LLM generation failed: {}", e);
+                    format!("# Software Requirements Specification\n\n## {}\n\n(LLM generation failed: {})\n\n## Fallback Content\n\nThis document should contain the software requirements for the project.", project_name, e)
+                }
             }
         } else {
-            "# Software Requirements\n\n(LLM disabled)".to_string()
+            format!("# Software Requirements Specification\n\n## {}\n\n(LLM is disabled. Enable LLM in settings to generate AI-powered SRS.)", project_name)
         };
         self.write_file("SOFTWARE_REQUIREMENTS.md", &content, DocType::SoftwareRequirements)
     }
