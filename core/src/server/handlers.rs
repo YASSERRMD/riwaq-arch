@@ -442,8 +442,26 @@ pub async fn generate_single_doc(
         .unwrap_or("Project")
         .to_string();
     
-    // Create generator using internal HttpLlmClient with RIWAQ_LLM_API_KEY
-    let generator = AgenticDocGenerator::new(
+    // Get LLM client from state (same as ask_question uses)
+    let llm_client = match state.get_llm_client().await {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(SingleDocResponse {
+                    success: false,
+                    doc_type: req.doc_type,
+                    file_path: None,
+                    generation_time_ms: start.elapsed().as_millis() as u64,
+                    error: Some(format!("LLM client error: {}", e)),
+                }),
+            );
+        }
+    };
+    
+    // Create generator using the same LLM client as chat
+    let generator = AgenticDocGenerator::with_client(
+        std::sync::Arc::new(llm_client),
         output_path.clone(),
         project_name,
     );

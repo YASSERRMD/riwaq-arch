@@ -95,6 +95,15 @@ impl AgenticDocGenerator {
             project_name,
         }
     }
+    
+    /// Create with an external LLM client (use this when you have a configured client from AppState)
+    pub fn with_client(llm_client: Arc<dyn LLMClient>, output_dir: PathBuf, project_name: String) -> Self {
+        Self {
+            llm_client,
+            output_dir,
+            project_name,
+        }
+    }
 }
 
 /// Mock LLM client for when the real client fails
